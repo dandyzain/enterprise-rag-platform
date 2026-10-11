@@ -3,6 +3,7 @@
 import * as React from "react";
 import { CitationItem } from "@/lib/rag/types";
 import { RagSettings } from "./settings-modal";
+import { MarkdownMessage } from "./markdown-message";
 import {
   Send,
   Sparkles,
@@ -269,57 +270,6 @@ export function ChatWorkspace({
     toast.success("Percakapan berhasil diekspor sebagai Markdown (.md).");
   };
 
-  /**
-   * Parses text and renders citation tags [1], [2] as interactive clickable chips
-   */
-  const renderFormattedMessage = (content: string, citations?: CitationItem[]) => {
-    if (!citations || citations.length === 0) {
-      return <p className="whitespace-pre-wrap leading-relaxed">{content}</p>;
-    }
-
-    const citationRegex = /\[(\d+)\]/g;
-    const parts: (string | React.ReactNode)[] = [];
-    let lastIndex = 0;
-    let match: RegExpExecArray | null;
-
-    while ((match = citationRegex.exec(content)) !== null) {
-      const matchIndex = match.index;
-      const citeNum = parseInt(match[1], 10);
-
-      if (matchIndex > lastIndex) {
-        parts.push(content.substring(lastIndex, matchIndex));
-      }
-
-      const foundCite = citations.find((c) => c.index === citeNum);
-
-      parts.push(
-        <button
-          key={`cite-${matchIndex}`}
-          type="button"
-          onClick={() => {
-            if (foundCite) {
-              onSelectCitation(foundCite);
-            } else {
-              toast.info(`Sitasi referensi [${citeNum}]`);
-            }
-          }}
-          className="mx-0.5 inline-flex items-center align-baseline rounded bg-emerald-100/90 px-1.5 py-0.2 font-mono text-[11px] font-semibold text-emerald-800 transition hover:bg-emerald-200 hover:scale-105 active:scale-95 dark:bg-emerald-950/80 dark:text-emerald-300 dark:hover:bg-emerald-900 cursor-pointer"
-          title={`Lihat sumber referensi [${citeNum}]`}
-        >
-          [{citeNum}]
-        </button>
-      );
-
-      lastIndex = matchIndex + match[0].length;
-    }
-
-    if (lastIndex < content.length) {
-      parts.push(content.substring(lastIndex));
-    }
-
-    return <div className="whitespace-pre-wrap leading-relaxed">{parts}</div>;
-  };
-
   return (
     <div className="relative flex flex-1 flex-col h-full overflow-hidden bg-white dark:bg-zinc-950">
       {/* Top Subtle Header Bar */}
@@ -475,7 +425,11 @@ export function ChatWorkspace({
                 {/* Assistant Answer or User Query */}
                 {msg.role === "assistant" ? (
                   <div>
-                    {renderFormattedMessage(msg.content, msg.citations)}
+                    <MarkdownMessage
+                      content={msg.content}
+                      citations={msg.citations}
+                      onSelectCitation={onSelectCitation}
+                    />
                     {msg.citations && msg.citations.length > 0 && (
                       <div className="mt-3.5 flex flex-wrap items-center gap-1.5 border-t border-zinc-100 pt-2.5 dark:border-zinc-800/60">
                         <span className="text-[11px] font-medium text-zinc-400">
