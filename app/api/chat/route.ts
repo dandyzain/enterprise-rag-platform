@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
     const query = lastUserMessage?.content || "";
 
-    // Persist user message if session is active
+    // Persist user message and perform smart auto-titling if session is active
     if (chatSessionId && query) {
       try {
         await db.createChatMessage({
@@ -44,8 +44,20 @@ export async function POST(req: NextRequest) {
           role: "USER",
           content: query,
         });
+
+        // Auto-title session if currently default
+        const session = await db.getChatSessionById(chatSessionId);
+        if (
+          session &&
+          (session.title === "Percakapan Baru" ||
+            session.title.startsWith("Sesi ") ||
+            session.title.trim().length === 0)
+        ) {
+          const smartTitle = generateSmartSessionTitle(query);
+          await db.updateChatSessionTitle(chatSessionId, smartTitle);
+        }
       } catch (err) {
-        console.warn("[API Chat] Failed to save user message to session:", err);
+        console.warn("[API Chat] Failed to save user message or auto-title session:", err);
       }
     }
 
@@ -198,3 +210,19 @@ function generateGroundedFallbackResponse(
 
   return `Berdasarkan analisis semantik terhadap dokumen dalam Knowledge Base Anda, berikut adalah poin-poin yang relevan terkait pertanyaan Anda:\n\n${citePoints}\n\nSemua rincian di atas diekstraksi secara langsung dari data vektor terindeks dengan ambang kemiripan kosinus (cosine similarity threshold) >= 0.65. Anda dapat mengklik tombol sitasi [1], [2], atau [3] untuk meninjau paragraf asli pada panel samping.`;
 }
+
+function generateSmartSessionTitle(query: string): string {
+  const clean = query
+    .replace(/[?.,!":;]/g, "")
+    .replace(
+      /^(tolong|bagaimana|apakah|sebutkan|jelaskan|apa saja|siapa|kapan|mengapa|dimana|bisakah kamu)\s+/i,
+      ""
+    )
+    .trim();
+
+  const words = clean.split(/\s+/).slice(0, 5);
+  if (words.length === 0) return "Diskusi RAG";
+  const title = words.join(" ");
+  return title.charAt(0).toUpperCase() + title.slice(1);
+}
+

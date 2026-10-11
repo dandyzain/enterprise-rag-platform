@@ -606,6 +606,49 @@ export const db = {
     return existed;
   },
 
+  async updateChatSessionTitle(sessionId: string, title: string): Promise<void> {
+    try {
+      if (process.env.DATABASE_URL) {
+        await prisma.chatSession.update({
+          where: { id: sessionId },
+          data: { title },
+        });
+        return;
+      }
+    } catch (err) {
+      console.warn("[DB] updateChatSessionTitle fallback:", err);
+    }
+
+    const session = memoryStore.chatSessions.get(sessionId);
+    if (session) {
+      session.title = title;
+      memoryStore.chatSessions.set(sessionId, session);
+    }
+  },
+
+  async getChatSessionById(sessionId: string): Promise<ChatSessionItem | null> {
+    try {
+      if (process.env.DATABASE_URL) {
+        const row = await prisma.chatSession.findUnique({
+          where: { id: sessionId },
+        });
+        if (row) {
+          return {
+            id: row.id,
+            knowledgeBaseId: row.knowledgeBaseId,
+            userId: row.userId,
+            title: row.title,
+            createdAt: row.createdAt,
+          };
+        }
+      }
+    } catch (err) {
+      console.warn("[DB] getChatSessionById fallback:", err);
+    }
+
+    return memoryStore.chatSessions.get(sessionId) ?? null;
+  },
+
   // Persistent Messages
   async createChatMessage(data: {
     chatSessionId: string;
