@@ -7,6 +7,8 @@ export interface SemanticSearchOptions {
   searchMode?: SearchMode; // "hybrid" | "semantic" | "keyword"
   threshold?: number; // default: 0.65
   topK?: number; // default: 5
+  filterDocumentIds?: string[];
+  enableReranking?: boolean; // default: true
 }
 
 export interface SemanticSearchResult {
@@ -19,7 +21,7 @@ export interface SemanticSearchResult {
 
 /**
  * Executes search against document chunks using Hybrid Search (Dense + Sparse BM25 via RRF),
- * pure Semantic Vector search, or pure Lexical Keyword search.
+ * pure Semantic Vector search, or pure Lexical Keyword search, with two-stage re-ranking.
  */
 export async function performSemanticSearch(
   options: SemanticSearchOptions
@@ -30,6 +32,8 @@ export async function performSemanticSearch(
     searchMode = "hybrid",
     threshold = 0.65,
     topK = 5,
+    filterDocumentIds,
+    enableReranking = true,
   } = options;
 
   if (!query || query.trim().length === 0) {
@@ -42,16 +46,18 @@ export async function performSemanticSearch(
     };
   }
 
-  // Execute hybrid or selected search
+  // Execute hybrid or selected search with optional two-stage reranker
   const chunks = await executeHybridSearch({
     knowledgeBaseId,
     query,
     searchMode,
     threshold,
     topK,
+    filterDocumentIds,
+    enableReranking,
   });
 
-  // Transform to citation models with hybrid ranking telemetry
+  // Transform to citation models with hybrid and rerank ranking telemetry
   const citations: CitationItem[] = chunks.map((chunk, index) => {
     const snippet =
       chunk.content.length > 200
@@ -71,6 +77,10 @@ export async function performSemanticSearch(
       bm25Score: chunk.bm25Score,
       rrfScore: chunk.rrfScore,
       matchType: chunk.matchType,
+      initialRank: chunk.initialRank,
+      reRank: chunk.reRank,
+      rerankScore: chunk.rerankScore,
+      rerankDelta: chunk.rerankDelta,
     };
   });
 
@@ -82,4 +92,5 @@ export async function performSemanticSearch(
     searchMode,
   };
 }
+
 

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CitationItem, GroundednessReport } from "@/lib/rag/types";
+import { CitationItem, GroundednessReport, DocumentItem } from "@/lib/rag/types";
 import { RagSettings } from "./settings-modal";
 import { MarkdownMessage } from "./markdown-message";
 import { GroundednessModal } from "./groundedness-modal";
@@ -23,6 +23,7 @@ import {
   Check,
   Search,
   Activity,
+  Filter,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +41,7 @@ interface ChatWorkspaceProps {
   knowledgeBaseId: string;
   activeSessionId: string | null;
   ragSettings: RagSettings;
+  documents?: DocumentItem[];
   onSelectCitation: (citation: CitationItem) => void;
   onOpenUpload: () => void;
   onOpenSettings: () => void;
@@ -70,6 +72,7 @@ export function ChatWorkspace({
   knowledgeBaseId,
   activeSessionId,
   ragSettings,
+  documents = [],
   onSelectCitation,
   onOpenUpload,
   onOpenSettings,
@@ -82,6 +85,7 @@ export function ChatWorkspace({
   const [isLoading, setIsLoading] = React.useState(false);
   const [copiedMsgId, setCopiedMsgId] = React.useState<string | null>(null);
   const [selectedGroundedness, setSelectedGroundedness] = React.useState<GroundednessReport | null>(null);
+  const [scopedDocumentId, setScopedDocumentId] = React.useState<string | null>(null);
   const messagesEndRef = React.useRef<HTMLDivElement | null>(null);
   const streamAccumulatorRef = React.useRef<string>("");
 
@@ -169,6 +173,8 @@ export function ChatWorkspace({
           searchMode: ragSettings.searchMode,
           similarityThreshold: ragSettings.similarityThreshold,
           topK: ragSettings.topK,
+          enableReranking: ragSettings.enableReranking,
+          filterDocumentIds: scopedDocumentId ? [scopedDocumentId] : undefined,
         }),
       });
 
@@ -578,6 +584,25 @@ export function ChatWorkspace({
                   <Paperclip className="h-3.5 w-3.5" />
                   <span>Lampirkan Dokumen</span>
                 </Button>
+
+                {documents && documents.length > 0 && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-[11px] text-zinc-400 hidden md:inline">Cakupan:</span>
+                    <select
+                      value={scopedDocumentId || ""}
+                      onChange={(e) => setScopedDocumentId(e.target.value || null)}
+                      className="rounded-lg border border-zinc-200 bg-white/90 px-2 py-1 text-[11px] text-zinc-700 transition hover:border-zinc-300 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 max-w-[170px] truncate cursor-pointer"
+                      title="Filter cakupan retrieval ke dokumen tertentu"
+                    >
+                      <option value="">Semua Dokumen ({documents.length})</option>
+                      {documents.map((doc) => (
+                        <option key={doc.id} value={doc.id}>
+                          {doc.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <Badge variant="secondary" className="text-[10px] hidden sm:inline-flex">
                   Strict Grounding Aktif

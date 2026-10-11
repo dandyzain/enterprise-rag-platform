@@ -21,6 +21,8 @@ export async function POST(req: NextRequest) {
       searchMode = "hybrid" as SearchMode,
       similarityThreshold = 0.65,
       topK = 5,
+      filterDocumentIds,
+      enableReranking = true,
     } = body;
 
     if (!Array.isArray(messages) || messages.length === 0) {
@@ -47,13 +49,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 1. Perform Hybrid / Semantic Search (Dense + Sparse BM25 via RRF)
+    // 1. Perform Hybrid / Semantic Search (Dense + Sparse BM25 via RRF) with Re-Ranking
     const searchResult = await performSemanticSearch({
       knowledgeBaseId,
       query,
       searchMode,
       threshold: similarityThreshold,
       topK,
+      filterDocumentIds: Array.isArray(filterDocumentIds) ? filterDocumentIds : undefined,
+      enableReranking,
     });
 
     // 2. Build Strict Grounding Prompt with Citations

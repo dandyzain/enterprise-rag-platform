@@ -242,12 +242,20 @@ export function SemanticSearchModal({
                   </div>
                 </div>
 
-                {/* Hybrid Rank telemetry */}
-                {(item.denseRank || item.sparseRank || item.rrfScore) && (
-                  <div className="mb-2 flex items-center gap-3 text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
-                    {item.denseRank && <span>Dense Rank: #{item.denseRank}</span>}
-                    {item.sparseRank && <span>BM25 Rank: #{item.sparseRank}</span>}
-                    {item.rrfScore && <span>RRF Score: {item.rrfScore}</span>}
+                {/* Hybrid and Re-Rank Telemetry */}
+                {(item.denseRank || item.sparseRank || item.rrfScore || item.reRank) && (
+                  <div className="mb-2 flex flex-wrap items-center gap-3 text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
+                    {item.reRank && (
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                        ⚡ Re-Rank: #{item.reRank}
+                        {typeof item.rerankDelta === "number" && item.rerankDelta > 0
+                          ? ` (+${item.rerankDelta} boost)`
+                          : ""}
+                      </span>
+                    )}
+                    {item.denseRank && <span>Dense: #{item.denseRank}</span>}
+                    {item.sparseRank && <span>BM25: #{item.sparseRank}</span>}
+                    {item.rrfScore && <span>RRF: {item.rrfScore}</span>}
                   </div>
                 )}
 

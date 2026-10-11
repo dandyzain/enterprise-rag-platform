@@ -43,6 +43,7 @@ export default function DashboardPage() {
     topK: 5,
     modelProvider: "openai",
     searchMode: "hybrid",
+    enableReranking: true,
   });
 
   const loadDocuments = React.useCallback(async (kbId: string) => {
@@ -213,6 +214,7 @@ export default function DashboardPage() {
           knowledgeBaseId={selectedKbId}
           activeSessionId={activeSessionId}
           ragSettings={ragSettings}
+          documents={documents}
           onSelectCitation={handleSelectCitation}
           onOpenUpload={() => setIsUploadModalOpen(true)}
           onOpenSettings={() => setIsSettingsOpen(true)}

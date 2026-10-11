@@ -118,8 +118,16 @@ export function CitationDrawer({ citation, isOpen, onClose }: CitationDrawerProp
                       )}
                     </div>
 
-                    {(citation.denseRank || citation.sparseRank || citation.rrfScore) && (
+                    {(citation.denseRank || citation.sparseRank || citation.rrfScore || citation.reRank) && (
                       <div className="mt-2.5 flex flex-wrap items-center gap-3 border-t border-zinc-200/50 pt-2 text-[10px] font-mono text-zinc-500 dark:border-zinc-800/50">
+                        {citation.reRank && (
+                          <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                            Re-Rank: #{citation.reRank}
+                            {typeof citation.rerankDelta === "number" && citation.rerankDelta > 0
+                              ? ` (+${citation.rerankDelta} boost)`
+                              : ""}
+                          </span>
+                        )}
                         {citation.denseRank && <span>Dense Rank: #{citation.denseRank}</span>}
                         {citation.sparseRank && <span>BM25 Rank: #{citation.sparseRank}</span>}
                         {citation.rrfScore && <span>RRF Score: {citation.rrfScore}</span>}

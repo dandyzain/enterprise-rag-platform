@@ -8,6 +8,8 @@ const SearchQuerySchema = z.object({
   searchMode: z.enum(["hybrid", "semantic", "keyword"]).default("hybrid"),
   threshold: z.number().min(0.1).max(1.0).default(0.65),
   topK: z.number().min(1).max(20).default(5),
+  filterDocumentIds: z.array(z.string()).optional(),
+  enableReranking: z.boolean().default(true),
 });
 
 export async function POST(req: NextRequest) {
@@ -27,7 +29,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { query, knowledgeBaseId, searchMode, threshold, topK } = validation.data;
+    const {
+      query,
+      knowledgeBaseId,
+      searchMode,
+      threshold,
+      topK,
+      filterDocumentIds,
+      enableReranking,
+    } = validation.data;
 
     const result = await performSemanticSearch({
       knowledgeBaseId,
@@ -35,6 +45,8 @@ export async function POST(req: NextRequest) {
       searchMode,
       threshold,
       topK,
+      filterDocumentIds,
+      enableReranking,
     });
 
     const latencyMs = Date.now() - startTime;

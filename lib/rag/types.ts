@@ -47,6 +47,10 @@ export interface SearchResultChunk {
   bm25Score?: number;
   rrfScore?: number;
   matchType?: "vector" | "bm25" | "hybrid";
+  initialRank?: number;
+  reRank?: number;
+  rerankScore?: number;
+  rerankDelta?: number;
 }
 
 export interface CitationItem {
@@ -62,6 +66,10 @@ export interface CitationItem {
   bm25Score?: number;
   rrfScore?: number;
   matchType?: "vector" | "bm25" | "hybrid";
+  initialRank?: number;
+  reRank?: number;
+  rerankScore?: number;
+  rerankDelta?: number;
 }
 
 export interface GroundednessAuditItem {
