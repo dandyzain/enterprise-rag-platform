@@ -1,0 +1,16 @@
+# Enterprise RAG & Knowledge Base Operational Standard (SOP-2026-09)
+
+## 1. Arsitektur Vector Engine & Database
+Platform Knowledge Base Enterprise mengintegrasikan PostgreSQL dengan ekstensi pgvector. Vektor representasi teks disimpan dalam tabel `document_chunks` dengan tipe data `vector(1536)` untuk model OpenAI dan `vector(768)` untuk model Google Gemini. Untuk memastikan latensi pencarian di bawah 15 milidetik pada skala jutaan baris, indeks HNSW (Hierarchical Navigable Small World) diaktifkan menggunakan operator cosine distance `vector_cosine_ops` dengan konfigurasi m=16 dan ef_construction=64.
+
+## 2. Standar Ingestion & Pemecahan Dokumen (Recursive Chunking)
+Setiap dokumen yang diunggah ke Knowledge Base diproses secara otomatis melalui pipeline recursive chunking. Ukuran segmen teks ditetapkan secara ketat sebesar 500 hingga 700 token dengan overlap 100 token. Hirarki pemisah teks menggunakan urutan separator:
+1. Pemisah paragraf ("\n\n")
+2. Pemisah baris ("\n")
+3. Pemisah kata/spasi (" ")
+4. Karakter individual ("")
+
+Aturan ini mencegah pemotongan kata di tengah kalimat dan mempertahankan konteks semantik dari setiap klausa teknis.
+
+## 3. Ambang Kemiripan Vektor & Strict Grounding
+Pencarian semantik menerapkan batas ambang kemiripan kosinus (similarity threshold) minimum sebesar 0.65. Potongan dokumen yang memiliki skor di bawah 0.65 akan diabaikan untuk mencegah halusinasi model AI. Sistem mengambil Top-4 hingga Top-5 potongan data terbaik untuk dirangkai ke dalam prompt konteks. Model bahasa dilarang berspekulasi jika informasi yang ditanyakan tidak ditemukan dalam dokumen.

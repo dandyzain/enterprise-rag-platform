@@ -1,0 +1,98 @@
+// Prisma Schema for Enterprise Knowledge Base & RAG Platform
+// Supports PostgreSQL with pgvector extension
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+enum DocumentStatus {
+  PROCESSING
+  INDEXED
+  FAILED
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+}
+
+model KnowledgeBase {
+  id          String        @id @default(uuid())
+  userId      String        @default("user_default") @map("user_id")
+  name        String
+  description String?
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  documents    Document[]
+  chatSessions ChatSession[]
+
+  @@map("knowledge_bases")
+}
+
+model Document {
+  id              String         @id @default(uuid())
+  knowledgeBaseId String         @map("knowledge_base_id")
+  title           String
+  fileUrl         String         @map("file_url")
+  fileType        String         @map("file_type")
+  fileSize        Int            @map("file_size")
+  status          DocumentStatus @default(PROCESSING)
+  chunkCount      Int            @default(0) @map("chunk_count")
+  createdAt       DateTime       @default(now()) @map("created_at")
+
+  knowledgeBase   KnowledgeBase  @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  chunks          DocumentChunk[]
+
+  @@index([knowledgeBaseId])
+  @@map("documents")
+}
+
+model DocumentChunk {
+  id          String                    @id @default(uuid())
+  documentId  String                    @map("document_id")
+  content     String
+  chunkIndex  Int                       @map("chunk_index")
+  pageNumber  Int?                      @map("page_number")
+  embedding   Unsupported("vector(1536)")?
+  createdAt   DateTime                  @default(now()) @map("created_at")
+
+  document    Document                  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@map("document_chunks")
+}
+
+model ChatSession {
+  id              String        @id @default(uuid())
+  knowledgeBaseId String        @map("knowledge_base_id")
+  userId          String        @default("user_default") @map("user_id")
+  title           String
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  knowledgeBase   KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  messages        Message[]
+
+  @@index([knowledgeBaseId])
+  @@map("chat_sessions")
+}
+
+model Message {
+  id            String      @id @default(uuid())
+  chatSessionId String      @map("chat_session_id")
+  role          MessageRole
+  content       String
+  citations     Json?
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  chatSession   ChatSession @relation(fields: [chatSessionId], references: [id], onDelete: Cascade)
+
+  @@index([chatSessionId])
+  @@map("messages")
+}

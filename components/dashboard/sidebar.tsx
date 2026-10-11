@@ -1,0 +1,491 @@
+"use client";
+
+import * as React from "react";
+import { DocumentItem, KnowledgeBaseItem, ChatSessionItem } from "@/lib/rag/types";
+import { formatBytes } from "@/lib/utils";
+import { useTheme } from "@/components/providers/theme-provider";
+import {
+  Database,
+  FileText,
+  UploadCloud,
+  ChevronLeft,
+  ChevronRight,
+  Sun,
+  Moon,
+  HardDrive,
+  RefreshCw,
+  FileUp,
+  Plus,
+  Trash2,
+  MessageSquare,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
+
+interface SidebarProps {
+  documents: DocumentItem[];
+  knowledgeBases: KnowledgeBaseItem[];
+  selectedKbId: string;
+  onSelectKb: (id: string) => void;
+  isLoading: boolean;
+  onRefreshDocs: () => void;
+  onUploadSuccess: () => void;
+  onInspectDocument: (doc: DocumentItem) => void;
+  onDeleteDocument: (docId: string) => void;
+  onOpenCreateKb: () => void;
+  chatSessions: ChatSessionItem[];
+  activeSessionId: string | null;
+  onSelectSession: (id: string) => void;
+  onNewSession: () => void;
+  onDeleteSession: (id: string) => void;
+}
+
+export function Sidebar({
+  documents,
+  knowledgeBases,
+  selectedKbId,
+  onSelectKb,
+  isLoading,
+  onRefreshDocs,
+  onUploadSuccess,
+  onInspectDocument,
+  onDeleteDocument,
+  onOpenCreateKb,
+  chatSessions,
+  activeSessionId,
+  onSelectSession,
+  onNewSession,
+  onDeleteSession,
+}: SidebarProps) {
+  const [isCollapsed, setIsCollapsed] = React.useState(false);
+  const [activeTab, setActiveTab] = React.useState<"docs" | "chats">("docs");
+  const [isUploading, setIsUploading] = React.useState(false);
+  const [uploadProgressStatus, setUploadProgressStatus] = React.useState<string | null>(null);
+  const { isDark, setTheme } = useTheme();
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const selectedKb =
+    knowledgeBases.find((k) => k.id === selectedKbId) ||
+    knowledgeBases[0] || {
+      id: "default-kb-1",
+      name: "Enterprise Core Knowledge",
+    };
+
+  const totalChunks = documents.reduce((sum, d) => sum + (d.chunkCount || 0), 0);
+  const totalBytes = documents.reduce((sum, d) => sum + (d.fileSize || 0), 0);
+  const chunkLimit = 50000;
+  const usagePercent = Math.min(100, Math.round((totalChunks / chunkLimit) * 100));
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploading(true);
+      setUploadProgressStatus("Uploading...");
+      toast.info(`Mengunggah berkas "${file.name}"...`);
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("knowledgeBaseId", selectedKbId);
+
+      setTimeout(() => {
+        setUploadProgressStatus("Chunking & Indexing...");
+      }, 700);
+
+      const res = await fetch("/api/documents/ingest", {
+        method: "POST",
+        body: formData,
+      });
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "Gagal mengunggah dan mengindeks dokumen.");
+      }
+
+      toast.success(`Dokumen "${file.name}" berhasil diindeks (${json.data.totalChunks} chunks)!`);
+      onUploadSuccess();
+      onRefreshDocs();
+    } catch (err: unknown) {
+      const error = err as Error;
+      toast.error(error.message || "Gagal mengunggah dokumen.");
+    } finally {
+      setIsUploading(false);
+      setUploadProgressStatus(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  return (
+    <aside
+      className={`relative flex flex-col border-r border-zinc-200 bg-zinc-50/70 transition-all duration-300 dark:border-zinc-800 dark:bg-zinc-950/80 backdrop-blur-xl ${
+        isCollapsed ? "w-16" : "w-80"
+      }`}
+    >
+      {/* Collapse Toggle Button */}
+      <button
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        className="absolute -right-3.5 top-6 z-20 flex h-7 w-7 items-center justify-center rounded-full border border-zinc-200 bg-white shadow-xs transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+        title={isCollapsed ? "Buka Sidebar" : "Ciutkan Sidebar"}
+      >
+        {isCollapsed ? (
+          <ChevronRight className="h-3.5 w-3.5 text-zinc-600 dark:text-zinc-300" />
+        ) : (
+          <ChevronLeft className="h-3.5 w-3.5 text-zinc-600 dark:text-zinc-300" />
+        )}
+      </button>
+
+      {/* Top Header: Platform Identity & KB Switcher */}
+      <div className="border-b border-zinc-200/80 p-4 dark:border-zinc-800/80">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm shadow-emerald-500/20">
+            <Database className="h-5 w-5" />
+          </div>
+          {!isCollapsed && (
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+                  Cortex RAG
+                </span>
+                <span className="rounded bg-emerald-100 px-1.5 py-0.2 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400">
+                  Enterprise
+                </span>
+              </div>
+              <p className="truncate text-xs text-zinc-500">Semantic Vector Engine</p>
+            </div>
+          )}
+        </div>
+
+        {/* KB Selector with Create Action */}
+        {!isCollapsed && (
+          <div className="mt-3.5">
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+                Knowledge Base
+              </label>
+              <button
+                type="button"
+                onClick={onOpenCreateKb}
+                className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+                title="Buat Knowledge Base baru"
+              >
+                <Plus className="h-3 w-3" />
+                <span>Baru</span>
+              </button>
+            </div>
+            <div className="mt-1 flex items-center justify-between rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 shadow-2xs dark:border-zinc-800 dark:bg-zinc-900">
+              <select
+                value={selectedKbId}
+                onChange={(e) => onSelectKb(e.target.value)}
+                className="w-full bg-transparent text-xs font-medium text-zinc-900 dark:text-zinc-200 focus:outline-none cursor-pointer"
+              >
+                {knowledgeBases.length > 0 ? (
+                  knowledgeBases.map((kb) => (
+                    <option key={kb.id} value={kb.id} className="dark:bg-zinc-900 dark:text-zinc-200">
+                      {kb.name}
+                    </option>
+                  ))
+                ) : (
+                  <option value={selectedKb.id} className="dark:bg-zinc-900 dark:text-zinc-200">
+                    {selectedKb.name}
+                  </option>
+                )}
+              </select>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Ingestion Dropzone & Action Button */}
+      <div className="p-3 border-b border-zinc-200/80 dark:border-zinc-800/80">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.txt,.md,.json,.csv"
+          onChange={handleFileChange}
+          className="hidden"
+        />
+
+        {isCollapsed ? (
+          <Button
+            variant="default"
+            size="icon"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="w-full"
+            title="Unggah Dokumen PDF/Teks"
+          >
+            <UploadCloud className="h-4 w-4" />
+          </Button>
+        ) : (
+          <div
+            onClick={() => !isUploading && fileInputRef.current?.click()}
+            className={`group flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 p-3.5 text-center transition hover:border-emerald-500 hover:bg-emerald-50/20 dark:border-zinc-700 dark:hover:border-emerald-500 ${
+              isUploading ? "pointer-events-none opacity-80" : ""
+            }`}
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 transition group-hover:scale-110 dark:bg-emerald-950/60 dark:text-emerald-400">
+              {isUploading ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileUp className="h-4 w-4" />
+              )}
+            </div>
+            <p className="mt-2 text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+              {isUploading ? uploadProgressStatus : "Unggah Dokumen Knowledge"}
+            </p>
+            <p className="text-[11px] text-zinc-500">
+              {isUploading ? "Memproses embedding..." : "Format PDF, TXT, MD hingga 25MB"}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Tabs Switcher: Dokumen vs Sesi Obrolan */}
+      {!isCollapsed && (
+        <div className="flex border-b border-zinc-200/80 px-3 pt-2 dark:border-zinc-800/80">
+          <button
+            type="button"
+            onClick={() => setActiveTab("docs")}
+            className={`flex-1 border-b-2 py-1.5 text-center text-xs font-semibold transition ${
+              activeTab === "docs"
+                ? "border-emerald-500 text-emerald-600 dark:text-emerald-400"
+                : "border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+            }`}
+          >
+            Dokumen ({documents.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("chats")}
+            className={`flex-1 border-b-2 py-1.5 text-center text-xs font-semibold transition ${
+              activeTab === "chats"
+                ? "border-emerald-500 text-emerald-600 dark:text-emerald-400"
+                : "border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+            }`}
+          >
+            Sesi Chat ({chatSessions.length})
+          </button>
+        </div>
+      )}
+
+      {/* Tab Content: Document List or Chat Sessions */}
+      <div className="flex-1 overflow-y-auto p-3">
+        {activeTab === "docs" ? (
+          <>
+            {!isCollapsed && (
+              <div className="mb-2 flex items-center justify-between px-1">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+                  Daftar Terindeks
+                </span>
+                <button
+                  onClick={onRefreshDocs}
+                  className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                  title="Perbarui daftar dokumen"
+                >
+                  <RefreshCw className={`h-3 w-3 ${isLoading ? "animate-spin" : ""}`} />
+                </button>
+              </div>
+            )}
+
+            {isLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </div>
+            ) : documents.length === 0 ? (
+              !isCollapsed && (
+                <div className="rounded-lg border border-dashed border-zinc-200 p-4 text-center dark:border-zinc-800">
+                  <FileText className="mx-auto h-6 w-6 text-zinc-400" />
+                  <p className="mt-1 text-xs text-zinc-500">Belum ada dokumen</p>
+                  <p className="text-[10px] text-zinc-400">Unggah PDF untuk memulai pencarian RAG</p>
+                </div>
+              )
+            ) : (
+              <div className="space-y-1.5">
+                {documents.map((doc) => {
+                  const badgeVariant =
+                    doc.status === "INDEXED"
+                      ? "ready"
+                      : doc.status === "PROCESSING"
+                      ? "indexing"
+                      : "failed";
+
+                  const badgeText =
+                    doc.status === "INDEXED"
+                      ? "Ready"
+                      : doc.status === "PROCESSING"
+                      ? "Indexing"
+                      : "Failed";
+
+                  return (
+                    <div
+                      key={doc.id}
+                      className="group flex items-start gap-2.5 rounded-lg border border-transparent p-2 transition hover:border-zinc-200 hover:bg-white dark:hover:border-zinc-800 dark:hover:bg-zinc-900/60"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => onInspectDocument(doc)}
+                        className="mt-0.5 shrink-0 text-zinc-500 group-hover:text-emerald-500 cursor-pointer"
+                        title="Klik untuk melihat chunks"
+                      >
+                        <FileText className="h-4 w-4" />
+                      </button>
+
+                      {!isCollapsed && (
+                        <div className="min-w-0 flex-1">
+                          <button
+                            type="button"
+                            onClick={() => onInspectDocument(doc)}
+                            className="w-full text-left truncate text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:text-emerald-600 dark:hover:text-emerald-400 cursor-pointer"
+                            title={doc.title}
+                          >
+                            {doc.title}
+                          </button>
+                          <div className="mt-1 flex items-center justify-between">
+                            <span className="text-[10px] text-zinc-400">
+                              {formatBytes(doc.fileSize)} • {doc.chunkCount} chunks
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <Badge variant={badgeVariant} className="text-[10px] px-1.5 py-0">
+                                {badgeText}
+                              </Badge>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteDocument(doc.id);
+                                }}
+                                className="text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 opacity-0 group-hover:opacity-100 transition"
+                                title="Hapus dokumen"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        ) : (
+          /* Sesi Chat Tab */
+          <>
+            {!isCollapsed && (
+              <div className="mb-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onNewSession}
+                  className="w-full justify-start gap-2 text-xs border-dashed"
+                >
+                  <Plus className="h-3.5 w-3.5 text-emerald-500" />
+                  <span>Mulai Sesi Chat Baru</span>
+                </Button>
+              </div>
+            )}
+
+            {chatSessions.length === 0 ? (
+              !isCollapsed && (
+                <div className="rounded-lg border border-dashed border-zinc-200 p-4 text-center dark:border-zinc-800">
+                  <MessageSquare className="mx-auto h-5 w-5 text-zinc-400" />
+                  <p className="mt-1 text-xs text-zinc-500">Belum ada riwayat sesi</p>
+                </div>
+              )
+            ) : (
+              <div className="space-y-1">
+                {chatSessions.map((session) => (
+                  <div
+                    key={session.id}
+                    onClick={() => onSelectSession(session.id)}
+                    className={`group flex items-center justify-between rounded-lg p-2 text-xs cursor-pointer transition ${
+                      activeSessionId === session.id
+                        ? "bg-emerald-50/80 font-semibold text-emerald-900 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60"
+                        : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <MessageSquare className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
+                      <span className="truncate">{session.title}</span>
+                    </div>
+
+                    {!isCollapsed && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteSession(session.id);
+                        }}
+                        className="text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 opacity-0 group-hover:opacity-100 transition p-1"
+                        title="Hapus sesi"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Vector Capacity Indicator & Storage Statistics */}
+      {!isCollapsed && (
+        <div className="border-t border-zinc-200/80 p-3.5 dark:border-zinc-800/80">
+          <div className="rounded-xl border border-zinc-200/80 bg-white/70 p-3 shadow-2xs dark:border-zinc-800/80 dark:bg-zinc-900/40">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
+                <HardDrive className="h-3.5 w-3.5 text-emerald-500" />
+                Kapasitas Vektor
+              </span>
+              <span className="text-[10px] font-mono text-zinc-500">
+                {totalChunks} / {chunkLimit.toLocaleString()}
+              </span>
+            </div>
+
+            {/* Capacity Progress Bar */}
+            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+              <div
+                className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                style={{ width: `${Math.max(4, usagePercent)}%` }}
+              />
+            </div>
+
+            <div className="mt-2 flex items-center justify-between text-[10px] text-zinc-500">
+              <span>HNSW 1536 dims</span>
+              <span>{formatBytes(totalBytes)} terpakai</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bottom Footer: Dark/Light Mode Toggle */}
+      <div className="border-t border-zinc-200/80 p-3 dark:border-zinc-800/80">
+        <div className="flex items-center justify-between">
+          {!isCollapsed && (
+            <span className="text-xs text-zinc-500">
+              {isDark ? "Mode Gelap" : "Mode Terang"}
+            </span>
+          )}
+          <button
+            onClick={() => setTheme(isDark ? "light" : "dark")}
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer"
+            title="Alihkan Tema"
+          >
+            {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
+        </div>
+      </div>
+    </aside>
+  );
+}
