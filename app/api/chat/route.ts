@@ -5,6 +5,8 @@ import { google } from "@ai-sdk/google";
 import { db } from "@/lib/db";
 import { performSemanticSearch } from "@/lib/rag/search";
 import { buildStrictGroundingPrompt } from "@/lib/rag/prompt";
+import { evaluateGroundedness } from "@/lib/rag/evaluator";
+import { SearchMode } from "@/lib/rag/types";
 
 export const maxDuration = 45;
 
@@ -16,6 +18,9 @@ export async function POST(req: NextRequest) {
       knowledgeBaseId = "default-kb-1",
       chatSessionId,
       modelProvider = "openai",
+      searchMode = "hybrid" as SearchMode,
+      similarityThreshold = 0.65,
+      topK = 5,
     } = body;
 
     if (!Array.isArray(messages) || messages.length === 0) {
@@ -42,12 +47,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 1. Perform Semantic Vector Search (Cosine Similarity threshold >= 0.65, Top-K = 5)
+    // 1. Perform Hybrid / Semantic Search (Dense + Sparse BM25 via RRF)
     const searchResult = await performSemanticSearch({
       knowledgeBaseId,
       query,
-      threshold: 0.65,
-      topK: 5,
+      searchMode,
+      threshold: similarityThreshold,
+      topK,
     });
 
     // 2. Build Strict Grounding Prompt with Citations
@@ -78,11 +84,17 @@ export async function POST(req: NextRequest) {
         onFinish: async ({ text }) => {
           if (chatSessionId && text) {
             try {
+              const groundedness = evaluateGroundedness(
+                text,
+                searchResult.citations,
+                searchResult.chunks
+              );
               await db.createChatMessage({
                 chatSessionId,
                 role: "ASSISTANT",
                 content: text,
                 citations: searchResult.citations,
+                groundedness,
               });
             } catch (err) {
               console.warn("[API Chat] Failed to save assistant message onFinish:", err);
@@ -94,7 +106,7 @@ export async function POST(req: NextRequest) {
       return result.toTextStreamResponse({
         headers: {
           "x-citations": encodeURIComponent(citationsHeader),
-          "Access-Control-Expose-Headers": "x-citations",
+          "Access-Control-Expose-Headers": "x-citations, x-groundedness",
         },
       });
     }
@@ -106,6 +118,14 @@ export async function POST(req: NextRequest) {
       searchResult.hasContext
     );
 
+    // Evaluate Groundedness
+    const groundedness = evaluateGroundedness(
+      simulatedResponse,
+      searchResult.citations,
+      searchResult.chunks
+    );
+    const groundednessHeader = JSON.stringify(groundedness);
+
     // Persist assistant message in fallback
     if (chatSessionId) {
       try {
@@ -114,6 +134,7 @@ export async function POST(req: NextRequest) {
           role: "ASSISTANT",
           content: simulatedResponse,
           citations: searchResult.citations,
+          groundedness,
         });
       } catch (err) {
         console.warn("[API Chat] Failed to save fallback assistant message:", err);
@@ -127,7 +148,7 @@ export async function POST(req: NextRequest) {
         for (let i = 0; i < words.length; i++) {
           const piece = i === 0 ? words[i] : ` ${words[i]}`;
           controller.enqueue(encoder.encode(piece));
-          await new Promise((resolve) => setTimeout(resolve, 30));
+          await new Promise((resolve) => setTimeout(resolve, 25));
         }
         controller.close();
       },
@@ -137,7 +158,8 @@ export async function POST(req: NextRequest) {
       headers: {
         "Content-Type": "text/plain; charset=utf-8",
         "x-citations": encodeURIComponent(citationsHeader),
-        "Access-Control-Expose-Headers": "x-citations",
+        "x-groundedness": encodeURIComponent(groundednessHeader),
+        "Access-Control-Expose-Headers": "x-citations, x-groundedness",
       },
     });
   } catch (error: unknown) {

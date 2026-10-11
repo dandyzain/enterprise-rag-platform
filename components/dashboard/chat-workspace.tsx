@@ -1,9 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { CitationItem } from "@/lib/rag/types";
+import { CitationItem, GroundednessReport } from "@/lib/rag/types";
 import { RagSettings } from "./settings-modal";
 import { MarkdownMessage } from "./markdown-message";
+import { GroundednessModal } from "./groundedness-modal";
+import { evaluateGroundedness } from "@/lib/rag/evaluator";
 import {
   Send,
   Sparkles,
@@ -31,6 +33,7 @@ export interface MessageUI {
   role: "user" | "assistant";
   content: string;
   citations?: CitationItem[];
+  groundedness?: GroundednessReport | null;
 }
 
 interface ChatWorkspaceProps {
@@ -78,6 +81,7 @@ export function ChatWorkspace({
   const [input, setInput] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
   const [copiedMsgId, setCopiedMsgId] = React.useState<string | null>(null);
+  const [selectedGroundedness, setSelectedGroundedness] = React.useState<GroundednessReport | null>(null);
   const messagesEndRef = React.useRef<HTMLDivElement | null>(null);
   const streamAccumulatorRef = React.useRef<string>("");
 
@@ -112,11 +116,13 @@ export function ChatWorkspace({
                 role: string;
                 content: string;
                 citations?: CitationItem[];
+                groundedness?: GroundednessReport | null;
               }) => ({
                 id: m.id,
                 role: m.role.toLowerCase() as "user" | "assistant",
                 content: m.content,
                 citations: m.citations || undefined,
+                groundedness: m.groundedness || undefined,
               })
             )
           );
@@ -160,6 +166,9 @@ export function ChatWorkspace({
           knowledgeBaseId,
           chatSessionId: activeSessionId || undefined,
           modelProvider: ragSettings.modelProvider,
+          searchMode: ragSettings.searchMode,
+          similarityThreshold: ragSettings.similarityThreshold,
+          topK: ragSettings.topK,
         }),
       });
 
@@ -167,12 +176,22 @@ export function ChatWorkspace({
         throw new Error("Gagal memperoleh respons dari RAG engine.");
       }
 
-      // Parse citations from headers if present
+      // Parse citations and groundedness from headers if present
       const rawCitations = response.headers.get("x-citations");
       let extractedCitations: CitationItem[] = [];
       if (rawCitations) {
         try {
           extractedCitations = JSON.parse(decodeURIComponent(rawCitations));
+        } catch {
+          // ignore parsing error
+        }
+      }
+
+      const rawGroundedness = response.headers.get("x-groundedness");
+      let extractedGroundedness: GroundednessReport | null = null;
+      if (rawGroundedness) {
+        try {
+          extractedGroundedness = JSON.parse(decodeURIComponent(rawGroundedness));
         } catch {
           // ignore parsing error
         }
@@ -185,6 +204,7 @@ export function ChatWorkspace({
           role: "assistant",
           content: "",
           citations: extractedCitations,
+          groundedness: extractedGroundedness,
         },
       ]);
 
@@ -205,6 +225,17 @@ export function ChatWorkspace({
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantMsgId ? { ...m, content: currentText } : m
+          )
+        );
+      }
+
+      // Evaluate groundedness on stream completion if not pre-computed in header
+      const finalText = streamAccumulatorRef.current;
+      if (!extractedGroundedness && extractedCitations.length > 0) {
+        extractedGroundedness = evaluateGroundedness(finalText, extractedCitations, []);
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMsgId ? { ...m, groundedness: extractedGroundedness } : m
           )
         );
       }
@@ -447,12 +478,35 @@ export function ChatWorkspace({
                       </div>
                     )}
 
-                    {/* Copy action on assistant bubble */}
-                    <div className="mt-2 flex justify-end opacity-0 group-hover:opacity-100 transition">
+                    {/* Groundedness Audit Badge & Copy Action */}
+                    <div className="mt-3 flex items-center justify-between gap-2 border-t border-zinc-100 pt-2 dark:border-zinc-800/50">
+                      <div>
+                        {msg.groundedness ? (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedGroundedness(msg.groundedness || null)}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-50/60 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 transition hover:bg-emerald-100 hover:scale-105 active:scale-95 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950/80 cursor-pointer"
+                            title="Buka audit kepatuhan Groundedness & Anti-Halusinasi"
+                          >
+                            <ShieldCheck className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                            <span>{msg.groundedness.score}% Grounded</span>
+                            <span className="text-zinc-300 dark:text-zinc-600">•</span>
+                            <span className="font-normal text-zinc-500 dark:text-zinc-400">
+                              Risiko: {msg.groundedness.hallucinationRisk}
+                            </span>
+                          </button>
+                        ) : (
+                          <div className="flex items-center gap-1 text-[10px] text-zinc-400">
+                            <ShieldCheck className="h-3 w-3 text-zinc-400" />
+                            <span>Strict Grounding Aktif</span>
+                          </div>
+                        )}
+                      </div>
+
                       <button
                         type="button"
                         onClick={() => handleCopyMessage(msg.id, msg.content)}
-                        className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                        className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition"
                         title="Salin jawaban"
                       >
                         {copiedMsgId === msg.id ? (
@@ -545,6 +599,14 @@ export function ChatWorkspace({
           </div>
         </div>
       </div>
+
+      {/* Groundedness & Anti-Hallucination Audit Modal */}
+      <GroundednessModal
+        isOpen={Boolean(selectedGroundedness)}
+        onClose={() => setSelectedGroundedness(null)}
+        report={selectedGroundedness}
+      />
     </div>
   );
 }
+

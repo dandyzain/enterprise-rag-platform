@@ -1,10 +1,10 @@
-import { db } from "@/lib/db";
-import { getQueryEmbedding } from "./embedder";
-import { SearchResultChunk, CitationItem } from "./types";
+import { executeHybridSearch } from "./hybrid-search";
+import { SearchResultChunk, CitationItem, SearchMode } from "./types";
 
 export interface SemanticSearchOptions {
   knowledgeBaseId: string;
   query: string;
+  searchMode?: SearchMode; // "hybrid" | "semantic" | "keyword"
   threshold?: number; // default: 0.65
   topK?: number; // default: 5
 }
@@ -14,10 +14,12 @@ export interface SemanticSearchResult {
   chunks: SearchResultChunk[];
   citations: CitationItem[];
   hasContext: boolean;
+  searchMode: SearchMode;
 }
 
 /**
- * Executes semantic vector search against document chunks using cosine distance.
+ * Executes search against document chunks using Hybrid Search (Dense + Sparse BM25 via RRF),
+ * pure Semantic Vector search, or pure Lexical Keyword search.
  */
 export async function performSemanticSearch(
   options: SemanticSearchOptions
@@ -25,6 +27,7 @@ export async function performSemanticSearch(
   const {
     knowledgeBaseId,
     query,
+    searchMode = "hybrid",
     threshold = 0.65,
     topK = 5,
   } = options;
@@ -35,23 +38,21 @@ export async function performSemanticSearch(
       chunks: [],
       citations: [],
       hasContext: false,
+      searchMode,
     };
   }
 
-  // 1. Generate embedding for user query
-  const queryEmbedding = await getQueryEmbedding(query);
-
-  // 2. Perform Cosine Similarity Search (<=> in pgvector or fallback store)
-  const chunks = await db.searchSimilarChunks(
+  // Execute hybrid or selected search
+  const chunks = await executeHybridSearch({
     knowledgeBaseId,
-    queryEmbedding,
+    query,
+    searchMode,
     threshold,
-    topK
-  );
+    topK,
+  });
 
-  // 3. Transform to citation models
+  // Transform to citation models with hybrid ranking telemetry
   const citations: CitationItem[] = chunks.map((chunk, index) => {
-    // Generate clean 180-char snippet
     const snippet =
       chunk.content.length > 200
         ? `${chunk.content.slice(0, 197)}...`
@@ -65,6 +66,11 @@ export async function performSemanticSearch(
       pageNumber: chunk.pageNumber,
       similarity: Number((chunk.similarity * 100).toFixed(1)),
       snippet,
+      denseRank: chunk.denseRank,
+      sparseRank: chunk.sparseRank,
+      bm25Score: chunk.bm25Score,
+      rrfScore: chunk.rrfScore,
+      matchType: chunk.matchType,
     };
   });
 
@@ -73,5 +79,7 @@ export async function performSemanticSearch(
     chunks,
     citations,
     hasContext: chunks.length > 0,
+    searchMode,
   };
 }
+

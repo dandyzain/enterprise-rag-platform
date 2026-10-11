@@ -42,6 +42,7 @@ export default function DashboardPage() {
     similarityThreshold: 0.65,
     topK: 5,
     modelProvider: "openai",
+    searchMode: "hybrid",
   });
 
   const loadDocuments = React.useCallback(async (kbId: string) => {

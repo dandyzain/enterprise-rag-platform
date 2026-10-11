@@ -32,6 +32,8 @@ export interface DocumentChunkItem {
   createdAt: Date;
 }
 
+export type SearchMode = "hybrid" | "semantic" | "keyword";
+
 export interface SearchResultChunk {
   id: string;
   documentId: string;
@@ -40,6 +42,11 @@ export interface SearchResultChunk {
   chunkIndex: number;
   pageNumber: number | null;
   similarity: number;
+  denseRank?: number;
+  sparseRank?: number;
+  bm25Score?: number;
+  rrfScore?: number;
+  matchType?: "vector" | "bm25" | "hybrid";
 }
 
 export interface CitationItem {
@@ -50,6 +57,29 @@ export interface CitationItem {
   pageNumber: number | null;
   similarity: number;
   snippet: string;
+  denseRank?: number;
+  sparseRank?: number;
+  bm25Score?: number;
+  rrfScore?: number;
+  matchType?: "vector" | "bm25" | "hybrid";
+}
+
+export interface GroundednessAuditItem {
+  sentence: string;
+  isGrounded: boolean;
+  citationIndex?: number;
+  matchedSnippet?: string;
+  confidence: number;
+}
+
+export interface GroundednessReport {
+  score: number; // 0 - 100%
+  status: "HIGH" | "MEDIUM" | "LOW";
+  verifiedClaimsCount: number;
+  totalClaimsCount: number;
+  citationsReferenced: number[];
+  hallucinationRisk: "MINIMAL" | "MODERATE" | "HIGH";
+  auditItems: GroundednessAuditItem[];
 }
 
 export interface ChatSessionItem {
@@ -66,6 +96,7 @@ export interface ChatMessageItem {
   role: "USER" | "ASSISTANT";
   content: string;
   citations?: CitationItem[] | null;
+  groundedness?: GroundednessReport | null;
   createdAt: Date;
 }
 
@@ -79,3 +110,4 @@ export interface IngestionResult {
   status: DocumentStatus;
   processingTimeMs: number;
 }
+

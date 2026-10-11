@@ -8,6 +8,7 @@ import {
   ChatMessageItem,
   CitationItem,
   DocumentStatus,
+  GroundednessReport,
 } from "@/lib/rag/types";
 
 // Global Prisma Singleton for Next.js hot-reloading
@@ -473,6 +474,52 @@ export const db = {
       .sort((a, b) => a.chunkIndex - b.chunkIndex);
   },
 
+  async getAllChunksByKb(
+    knowledgeBaseId: string
+  ): Promise<Array<DocumentChunkItem & { documentTitle: string }>> {
+    try {
+      if (process.env.DATABASE_URL) {
+        const rows = await prisma.documentChunk.findMany({
+          where: {
+            document: { knowledgeBaseId },
+          },
+          include: {
+            document: { select: { title: true } },
+          },
+          orderBy: { chunkIndex: "asc" },
+        });
+        return rows.map((r) => ({
+          id: r.id,
+          documentId: r.documentId,
+          documentTitle: r.document.title,
+          content: r.content,
+          chunkIndex: r.chunkIndex,
+          pageNumber: r.pageNumber,
+          createdAt: r.createdAt,
+        }));
+      }
+    } catch (err) {
+      console.warn("[DB] getAllChunksByKb fallback:", err);
+    }
+
+    const docs = Array.from(memoryStore.documents.values()).filter(
+      (d) => d.knowledgeBaseId === knowledgeBaseId
+    );
+    const docMap = new Map(docs.map((d) => [d.id, d.title]));
+
+    const result: Array<DocumentChunkItem & { documentTitle: string }> = [];
+    for (const chunk of memoryStore.chunks.values()) {
+      if (docMap.has(chunk.documentId)) {
+        result.push({
+          ...chunk,
+          documentTitle: docMap.get(chunk.documentId) || "Dokumen",
+        });
+      }
+    }
+    return result;
+  },
+
+
   // Persistent Chat Sessions
   async createChatSession(data: {
     knowledgeBaseId: string;
@@ -565,6 +612,7 @@ export const db = {
     role: "USER" | "ASSISTANT";
     content: string;
     citations?: CitationItem[] | null;
+    groundedness?: GroundednessReport | null;
   }): Promise<ChatMessageItem> {
     const id = crypto.randomUUID();
     const item: ChatMessageItem = {
@@ -573,18 +621,23 @@ export const db = {
       role: data.role,
       content: data.content,
       citations: data.citations ?? null,
+      groundedness: data.groundedness ?? null,
       createdAt: new Date(),
     };
 
     try {
       if (process.env.DATABASE_URL) {
+        const payload = {
+          items: data.citations ?? [],
+          groundedness: data.groundedness ?? null,
+        };
         const row = await prisma.message.create({
           data: {
             id,
             chatSessionId: data.chatSessionId,
             role: data.role,
             content: data.content,
-            citations: data.citations ? JSON.stringify(data.citations) : undefined,
+            citations: JSON.stringify(payload),
           },
         });
         return {
@@ -592,7 +645,8 @@ export const db = {
           chatSessionId: row.chatSessionId,
           role: row.role as "USER" | "ASSISTANT",
           content: row.content,
-          citations: (row.citations as CitationItem[] | null) ?? null,
+          citations: data.citations ?? null,
+          groundedness: data.groundedness ?? null,
           createdAt: row.createdAt,
         };
       }
@@ -611,14 +665,32 @@ export const db = {
           where: { chatSessionId },
           orderBy: { createdAt: "asc" },
         });
-        return rows.map((r) => ({
-          id: r.id,
-          chatSessionId: r.chatSessionId,
-          role: r.role as "USER" | "ASSISTANT",
-          content: r.content,
-          citations: (r.citations as CitationItem[] | null) ?? null,
-          createdAt: r.createdAt,
-        }));
+        return rows.map((r) => {
+          let parsedCitations: CitationItem[] | null = null;
+          let parsedGroundedness: GroundednessReport | null = null;
+          if (r.citations) {
+            try {
+              const raw = typeof r.citations === "string" ? JSON.parse(r.citations) : r.citations;
+              if (Array.isArray(raw)) {
+                parsedCitations = raw;
+              } else if (raw && typeof raw === "object") {
+                parsedCitations = raw.items || null;
+                parsedGroundedness = raw.groundedness || null;
+              }
+            } catch {
+              // fallback ignore
+            }
+          }
+          return {
+            id: r.id,
+            chatSessionId: r.chatSessionId,
+            role: r.role as "USER" | "ASSISTANT",
+            content: r.content,
+            citations: parsedCitations,
+            groundedness: parsedGroundedness,
+            createdAt: r.createdAt,
+          };
+        });
       }
     } catch (err) {
       console.warn("[DB] getChatMessages fallback:", err);

@@ -5,6 +5,7 @@ import { z } from "zod";
 const SearchQuerySchema = z.object({
   query: z.string().min(1, "Query pencarian tidak boleh kosong"),
   knowledgeBaseId: z.string().default("default-kb-1"),
+  searchMode: z.enum(["hybrid", "semantic", "keyword"]).default("hybrid"),
   threshold: z.number().min(0.1).max(1.0).default(0.65),
   topK: z.number().min(1).max(20).default(5),
 });
@@ -26,11 +27,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { query, knowledgeBaseId, threshold, topK } = validation.data;
+    const { query, knowledgeBaseId, searchMode, threshold, topK } = validation.data;
 
     const result = await performSemanticSearch({
       knowledgeBaseId,
       query,
+      searchMode,
       threshold,
       topK,
     });

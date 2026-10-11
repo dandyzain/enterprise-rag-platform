@@ -103,7 +103,28 @@ export function CitationDrawer({ citation, isOpen, onClose }: CitationDrawerProp
                         <Sparkles className="mr-1 h-3 w-3" />
                         Kesesuaian {citation.similarity}%
                       </Badge>
+                      {citation.matchType && (
+                        <span
+                          className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+                            citation.matchType === "hybrid"
+                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                              : citation.matchType === "vector"
+                              ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300"
+                              : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                          }`}
+                        >
+                          {citation.matchType}
+                        </span>
+                      )}
                     </div>
+
+                    {(citation.denseRank || citation.sparseRank || citation.rrfScore) && (
+                      <div className="mt-2.5 flex flex-wrap items-center gap-3 border-t border-zinc-200/50 pt-2 text-[10px] font-mono text-zinc-500 dark:border-zinc-800/50">
+                        {citation.denseRank && <span>Dense Rank: #{citation.denseRank}</span>}
+                        {citation.sparseRank && <span>BM25 Rank: #{citation.sparseRank}</span>}
+                        {citation.rrfScore && <span>RRF Score: {citation.rrfScore}</span>}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

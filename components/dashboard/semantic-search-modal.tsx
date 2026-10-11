@@ -19,6 +19,7 @@ export function SemanticSearchModal({
   knowledgeBaseId,
 }: SemanticSearchModalProps) {
   const [query, setQuery] = React.useState("");
+  const [searchMode, setSearchMode] = React.useState<"hybrid" | "semantic" | "keyword">("hybrid");
   const [threshold, setThreshold] = React.useState(0.65);
   const [topK, setTopK] = React.useState(5);
   const [results, setResults] = React.useState<SearchResultChunk[]>([]);
@@ -39,6 +40,7 @@ export function SemanticSearchModal({
         body: JSON.stringify({
           query: query.trim(),
           knowledgeBaseId,
+          searchMode,
           threshold,
           topK,
         }),
@@ -70,10 +72,10 @@ export function SemanticSearchModal({
             </span>
             <div>
               <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-50">
-                Semantic Vector Search Playground
+                Hybrid & Vector Search Playground
               </h3>
               <p className="text-xs text-zinc-500">
-                Pengujian langsung pencarian kemiripan kosinus (<code className="font-mono text-[10px]">&lt;=&gt;</code>) dan perankingan chunk
+                Evaluasi komparatif Dense Vector (<code className="font-mono text-[10px]">&lt;=&gt;</code>) dan Sparse BM25 via Reciprocal Rank Fusion
               </p>
             </div>
           </div>
@@ -93,7 +95,7 @@ export function SemanticSearchModal({
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Ketik query semantik (e.g. arsitektur pgvector, standar enkripsi, SLA)..."
+                placeholder="Ketik query (e.g. SLA 99.95%, standar ISO-27001, arsitektur pgvector, SEC-POL-04)..."
                 className="w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2 text-xs text-zinc-900 placeholder-zinc-400 focus:border-emerald-500 focus:outline-none dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
               />
             </div>
@@ -109,8 +111,45 @@ export function SemanticSearchModal({
             </Button>
           </form>
 
-          {/* Sliders in playground */}
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-4 text-xs text-zinc-600 dark:text-zinc-400">
+          {/* Engine Mode & Sliders in playground */}
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-600 dark:text-zinc-400">
+            {/* Search mode pill buttons */}
+            <div className="flex items-center rounded-lg border border-zinc-200 bg-zinc-100/60 p-0.5 dark:border-zinc-800 dark:bg-zinc-900">
+              <button
+                type="button"
+                onClick={() => setSearchMode("hybrid")}
+                className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
+                  searchMode === "hybrid"
+                    ? "bg-white text-emerald-800 shadow-xs dark:bg-zinc-800 dark:text-emerald-400"
+                    : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200"
+                }`}
+              >
+                Hybrid (RRF)
+              </button>
+              <button
+                type="button"
+                onClick={() => setSearchMode("semantic")}
+                className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
+                  searchMode === "semantic"
+                    ? "bg-white text-indigo-700 shadow-xs dark:bg-zinc-800 dark:text-indigo-400"
+                    : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200"
+                }`}
+              >
+                Dense Vector
+              </button>
+              <button
+                type="button"
+                onClick={() => setSearchMode("keyword")}
+                className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
+                  searchMode === "keyword"
+                    ? "bg-white text-amber-700 shadow-xs dark:bg-zinc-800 dark:text-amber-400"
+                    : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200"
+                }`}
+              >
+                Sparse BM25
+              </button>
+            </div>
+
             <div className="flex items-center gap-3">
               <span className="font-medium">Threshold:</span>
               <input
@@ -120,30 +159,30 @@ export function SemanticSearchModal({
                 step={0.05}
                 value={threshold}
                 onChange={(e) => setThreshold(parseFloat(e.target.value))}
-                className="w-24 accent-emerald-500 cursor-pointer"
+                className="w-20 accent-emerald-500 cursor-pointer"
               />
               <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
                 {threshold.toFixed(2)}
               </span>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <span className="font-medium">Top-K:</span>
               <select
                 value={topK}
                 onChange={(e) => setTopK(parseInt(e.target.value, 10))}
                 className="rounded border border-zinc-200 bg-white px-2 py-0.5 text-xs dark:border-zinc-800 dark:bg-zinc-950"
               >
-                <option value={3}>Top 3</option>
-                <option value={5}>Top 5</option>
-                <option value={8}>Top 8</option>
+                <option value={3}>3</option>
+                <option value={5}>5</option>
+                <option value={8}>8</option>
               </select>
             </div>
 
             {latencyMs !== null && (
               <div className="flex items-center gap-1 text-[11px] font-mono text-zinc-500">
                 <Clock className="h-3 w-3" />
-                <span>Latensi Vektor: {latencyMs}ms</span>
+                <span>Latensi: {latencyMs}ms</span>
               </div>
             )}
           </div>
@@ -181,11 +220,36 @@ export function SemanticSearchModal({
                     </Badge>
                   </div>
 
-                  <Badge variant="ready" className="text-[11px]">
-                    <Sparkles className="mr-1 h-3 w-3" />
-                    Kemiripan {(item.similarity * 100).toFixed(1)}%
-                  </Badge>
+                  <div className="flex items-center gap-1.5">
+                    {item.matchType && (
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+                          item.matchType === "hybrid"
+                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                            : item.matchType === "vector"
+                            ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300"
+                            : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                        }`}
+                      >
+                        {item.matchType}
+                      </span>
+                    )}
+
+                    <Badge variant="ready" className="text-[11px]">
+                      <Sparkles className="mr-1 h-3 w-3" />
+                      {(item.similarity * 100).toFixed(1)}%
+                    </Badge>
+                  </div>
                 </div>
+
+                {/* Hybrid Rank telemetry */}
+                {(item.denseRank || item.sparseRank || item.rrfScore) && (
+                  <div className="mb-2 flex items-center gap-3 text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
+                    {item.denseRank && <span>Dense Rank: #{item.denseRank}</span>}
+                    {item.sparseRank && <span>BM25 Rank: #{item.sparseRank}</span>}
+                    {item.rrfScore && <span>RRF Score: {item.rrfScore}</span>}
+                  </div>
+                )}
 
                 <p className="whitespace-pre-wrap font-sans text-xs leading-relaxed text-zinc-700 dark:text-zinc-300">
                   {item.content}
