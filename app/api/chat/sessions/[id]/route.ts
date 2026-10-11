@@ -21,6 +21,38 @@ export async function GET(
   }
 }
 
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const body = await req.json();
+    const { title } = body;
+
+    if (!title || typeof title !== "string" || !title.trim()) {
+      return NextResponse.json(
+        { success: false, error: "Judul sesi tidak boleh kosong." },
+        { status: 400 }
+      );
+    }
+
+    await db.updateChatSessionTitle(id, title.trim());
+
+    return NextResponse.json({
+      success: true,
+      message: "Judul sesi berhasil diperbarui.",
+      data: { id, title: title.trim() },
+    });
+  } catch (error) {
+    console.error("[API Chat Sessions ID] PATCH error:", error);
+    return NextResponse.json(
+      { success: false, error: "Gagal memperbarui judul sesi." },
+      { status: 500 }
+    );
+  }
+}
+
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -47,3 +79,4 @@ export async function DELETE(
     );
   }
 }
+

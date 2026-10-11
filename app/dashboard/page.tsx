@@ -169,6 +169,27 @@ export default function DashboardPage() {
     }
   };
 
+  const handleRenameSession = async (sessionId: string, newTitle: string) => {
+    try {
+      const res = await fetch(`/api/chat/sessions/${sessionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: newTitle }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setChatSessions((prev) =>
+          prev.map((s) => (s.id === sessionId ? { ...s, title: newTitle } : s))
+        );
+        toast.success("Judul sesi berhasil diperbarui.");
+      } else {
+        toast.error(json.error || "Gagal memperbarui judul sesi.");
+      }
+    } catch {
+      toast.error("Gagal memperbarui judul sesi.");
+    }
+  };
+
   const handleDeleteDocument = async (docId: string) => {
     try {
       const res = await fetch(`/api/documents/${docId}`, {
@@ -206,6 +227,7 @@ export default function DashboardPage() {
         onSelectSession={(id) => setActiveSessionId(id)}
         onNewSession={handleCreateNewSession}
         onDeleteSession={handleDeleteSession}
+        onRenameSession={handleRenameSession}
       />
 
       {/* 2. Central Focused Chat Workspace */}

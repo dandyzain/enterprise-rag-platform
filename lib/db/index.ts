@@ -743,4 +743,50 @@ export const db = {
       .filter((m) => m.chatSessionId === chatSessionId)
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   },
+
+  async exportKnowledgeBaseData(knowledgeBaseId: string) {
+    const kbs = await this.getKnowledgeBases();
+    const kb = kbs.find((k) => k.id === knowledgeBaseId);
+    const docs = await this.getDocumentsByKb(knowledgeBaseId);
+    const stats = await this.getStorageStats(knowledgeBaseId);
+
+    const docsWithChunks = await Promise.all(
+      docs.map(async (doc) => {
+        const chunks = await this.getDocumentChunks(doc.id);
+        return {
+          id: doc.id,
+          title: doc.title,
+          fileType: doc.fileType,
+          fileSize: doc.fileSize,
+          status: doc.status,
+          chunkCount: doc.chunkCount,
+          createdAt: doc.createdAt,
+          chunks: chunks.map((c) => ({
+            id: c.id,
+            chunkIndex: c.chunkIndex,
+            pageNumber: c.pageNumber,
+            content: c.content,
+            embeddingDim: c.embedding?.length ?? 1536,
+            createdAt: c.createdAt,
+          })),
+        };
+      })
+    );
+
+    return {
+      version: "1.0",
+      exportType: "ENTERPRISE_RAG_KB_BACKUP",
+      exportedAt: new Date().toISOString(),
+      knowledgeBase: kb || {
+        id: knowledgeBaseId,
+        name: "Enterprise Knowledge Base",
+        description: "Vector Knowledge Base Backup",
+        userId: "system-admin",
+        createdAt: new Date(),
+      },
+      stats,
+      documents: docsWithChunks,
+    };
+  },
 };
+

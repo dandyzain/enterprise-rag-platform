@@ -18,6 +18,10 @@ import {
   Plus,
   Trash2,
   MessageSquare,
+  Download,
+  Pencil,
+  Check,
+  X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,6 +44,7 @@ interface SidebarProps {
   onSelectSession: (id: string) => void;
   onNewSession: () => void;
   onDeleteSession: (id: string) => void;
+  onRenameSession?: (id: string, newTitle: string) => void;
 }
 
 export function Sidebar({
@@ -58,11 +63,14 @@ export function Sidebar({
   onSelectSession,
   onNewSession,
   onDeleteSession,
+  onRenameSession,
 }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<"docs" | "chats">("docs");
   const [isUploading, setIsUploading] = React.useState(false);
   const [uploadProgressStatus, setUploadProgressStatus] = React.useState<string | null>(null);
+  const [editingSessionId, setEditingSessionId] = React.useState<string | null>(null);
+  const [editingSessionTitle, setEditingSessionTitle] = React.useState<string>("");
   const { isDark, setTheme } = useTheme();
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
@@ -168,15 +176,28 @@ export function Sidebar({
               <label className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
                 Knowledge Base
               </label>
-              <button
-                type="button"
-                onClick={onOpenCreateKb}
-                className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
-                title="Buat Knowledge Base baru"
-              >
-                <Plus className="h-3 w-3" />
-                <span>Baru</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    window.open(`/api/knowledge-bases/${selectedKbId}/export`, "_blank")
+                  }
+                  className="flex items-center gap-1 text-[11px] font-medium text-zinc-500 hover:text-emerald-600 dark:hover:text-emerald-400"
+                  title="Unduh Backup JSON Knowledge Base"
+                >
+                  <Download className="h-3 w-3" />
+                  <span>Backup</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={onOpenCreateKb}
+                  className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+                  title="Buat Knowledge Base baru"
+                >
+                  <Plus className="h-3 w-3" />
+                  <span>Baru</span>
+                </button>
+              </div>
             </div>
             <div className="mt-1 flex items-center justify-between rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 shadow-2xs dark:border-zinc-800 dark:bg-zinc-900">
               <select
@@ -403,36 +424,103 @@ export function Sidebar({
               )
             ) : (
               <div className="space-y-1">
-                {chatSessions.map((session) => (
-                  <div
-                    key={session.id}
-                    onClick={() => onSelectSession(session.id)}
-                    className={`group flex items-center justify-between rounded-lg p-2 text-xs cursor-pointer transition ${
-                      activeSessionId === session.id
-                        ? "bg-emerald-50/80 font-semibold text-emerald-900 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60"
-                        : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 truncate">
-                      <MessageSquare className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
-                      <span className="truncate">{session.title}</span>
-                    </div>
+                {chatSessions.map((session) => {
+                  const isEditing = editingSessionId === session.id;
+                  return (
+                    <div
+                      key={session.id}
+                      onClick={() => {
+                        if (!isEditing) onSelectSession(session.id);
+                      }}
+                      className={`group flex items-center justify-between rounded-lg p-2 text-xs cursor-pointer transition ${
+                        activeSessionId === session.id
+                          ? "bg-emerald-50/80 font-semibold text-emerald-900 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60"
+                          : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                      }`}
+                    >
+                      {isEditing ? (
+                        <div
+                          className="flex items-center gap-1.5 w-full"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="text"
+                            value={editingSessionTitle}
+                            onChange={(e) => setEditingSessionTitle(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                if (editingSessionTitle.trim() && onRenameSession) {
+                                  onRenameSession(session.id, editingSessionTitle.trim());
+                                }
+                                setEditingSessionId(null);
+                              } else if (e.key === "Escape") {
+                                setEditingSessionId(null);
+                              }
+                            }}
+                            autoFocus
+                            className="w-full rounded border border-emerald-500 bg-white px-2 py-0.5 text-xs text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100 focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (editingSessionTitle.trim() && onRenameSession) {
+                                onRenameSession(session.id, editingSessionTitle.trim());
+                              }
+                              setEditingSessionId(null);
+                            }}
+                            className="text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 p-0.5"
+                            title="Simpan nama"
+                          >
+                            <Check className="h-3 w-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingSessionId(null)}
+                            className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-0.5"
+                            title="Batal"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-2 truncate">
+                            <MessageSquare className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
+                            <span className="truncate">{session.title}</span>
+                          </div>
 
-                    {!isCollapsed && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteSession(session.id);
-                        }}
-                        className="text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 opacity-0 group-hover:opacity-100 transition p-1"
-                        title="Hapus sesi"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                          {!isCollapsed && (
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingSessionId(session.id);
+                                  setEditingSessionTitle(session.title);
+                                }}
+                                className="text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 p-1"
+                                title="Ubah judul sesi"
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteSession(session.id);
+                                }}
+                                className="text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 p-1"
+                                title="Hapus sesi"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </>

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { X, Activity, HardDrive, FileText, Layers, CheckCircle2, Cpu } from "lucide-react";
+import { X, Activity, HardDrive, FileText, Layers, CheckCircle2, Cpu, Download } from "lucide-react";
 import { DocumentItem, KnowledgeBaseItem } from "@/lib/rag/types";
 import { formatBytes } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -130,16 +130,38 @@ export function KbAnalyticsModal({
           <div className="flex items-center justify-between text-xs">
             <span className="flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300">
               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-              Pencarian Vektor Kosinus
+              Pencarian Vektor Kosinus & BM25
             </span>
             <Badge variant="ready" className="text-[10px]">
-              Operator &lt;=&gt; Siap
+              Hybrid RRF (k=60)
+            </Badge>
+          </div>
+
+          <div className="flex items-center justify-between text-xs">
+            <span className="flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+              Two-Stage Re-Ranking Engine
+            </span>
+            <Badge variant="ready" className="text-[10px]">
+              Cross-Encoder Top-15
             </Badge>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="mt-6 flex justify-end border-t border-zinc-100 pt-3 dark:border-zinc-800">
+        <div className="mt-6 flex items-center justify-between border-t border-zinc-100 pt-3 dark:border-zinc-800">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              window.open(`/api/knowledge-bases/${knowledgeBase.id}/export`, "_blank");
+            }}
+            className="gap-1.5 text-xs text-emerald-700 hover:text-emerald-800 dark:text-emerald-400"
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span>Unduh Backup JSON</span>
+          </Button>
+
           <Button variant="outline" size="sm" onClick={onClose} className="text-xs">
             Tutup Metrik
           </Button>
