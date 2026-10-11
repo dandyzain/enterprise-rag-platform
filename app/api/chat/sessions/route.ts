@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { getSessionFromRequest } from "@/lib/auth/session";
 import { z } from "zod";
 
 const CreateSessionSchema = z.object({
@@ -9,10 +10,11 @@ const CreateSessionSchema = z.object({
 
 export async function GET(req: NextRequest) {
   try {
+    const user = getSessionFromRequest(req);
     const { searchParams } = new URL(req.url);
     const kbId = searchParams.get("kbId") || "default-kb-1";
 
-    const sessions = await db.getChatSessions(kbId);
+    const sessions = await db.getChatSessions(kbId, user.id);
     return NextResponse.json({
       success: true,
       data: sessions,
@@ -28,6 +30,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const user = getSessionFromRequest(req);
     const body = await req.json();
     const validation = CreateSessionSchema.safeParse(body);
 
@@ -45,6 +48,7 @@ export async function POST(req: NextRequest) {
     const session = await db.createChatSession({
       knowledgeBaseId: validation.data.knowledgeBaseId,
       title: validation.data.title,
+      userId: user.id,
     });
 
     return NextResponse.json(

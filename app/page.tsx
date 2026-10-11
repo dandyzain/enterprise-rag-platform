@@ -20,8 +20,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/components/providers/auth-provider";
 
 export default function HomePage() {
+  const { user } = useAuth();
   const [testQuery, setTestQuery] = React.useState("Kebijakan retensi dan enkripsi data SEC-POL-04");
   const [testResults, setTestResults] = React.useState<any[] | null>(null);
   const [isSearching, setIsSearching] = React.useState(false);
@@ -116,16 +118,45 @@ export default function HomePage() {
               <span>pgvector HNSW Operator Ready</span>
             </div>
 
-            <Link href="/dashboard">
-              <Button
-                variant="default"
-                size="sm"
-                className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-500 shadow-md shadow-emerald-600/20"
-              >
-                <span>Buka Dashboard</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Button>
-            </Link>
+            {user ? (
+              <div className="flex items-center gap-2">
+                <span className="hidden md:inline text-xs text-zinc-400 font-medium">
+                  {user.name} ({user.plan})
+                </span>
+                <Link href="/dashboard">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-500 shadow-md shadow-emerald-600/20"
+                  >
+                    <span>Ke Workspace</span>
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Link href="/login">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-zinc-300 hover:text-white"
+                  >
+                    Masuk
+                  </Button>
+                </Link>
+                <Link href="/dashboard">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-500 shadow-md shadow-emerald-600/20"
+                  >
+                    <span>Buka Workspace</span>
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </header>

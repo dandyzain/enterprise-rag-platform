@@ -22,7 +22,14 @@ import {
   Pencil,
   Check,
   X,
+  LogOut,
+  User,
+  UserCheck,
+  ShieldCheck,
+  ChevronUp,
 } from "lucide-react";
+import Link from "next/link";
+import { useAuth } from "@/components/providers/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -71,6 +78,8 @@ export function Sidebar({
   const [uploadProgressStatus, setUploadProgressStatus] = React.useState<string | null>(null);
   const [editingSessionId, setEditingSessionId] = React.useState<string | null>(null);
   const [editingSessionTitle, setEditingSessionTitle] = React.useState<string>("");
+  const [showUserMenu, setShowUserMenu] = React.useState(false);
+  const { user, loginDemo, logout } = useAuth();
   const { isDark, setTheme } = useTheme();
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
@@ -557,22 +566,148 @@ export function Sidebar({
         </div>
       )}
 
-      {/* Bottom Footer: Dark/Light Mode Toggle */}
-      <div className="border-t border-zinc-200/80 p-3 dark:border-zinc-800/80">
-        <div className="flex items-center justify-between">
-          {!isCollapsed && (
-            <span className="text-xs text-zinc-500">
-              {isDark ? "Mode Gelap" : "Mode Terang"}
-            </span>
-          )}
-          <button
-            onClick={() => setTheme(isDark ? "light" : "dark")}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer"
-            title="Alihkan Tema"
-          >
-            {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </button>
-        </div>
+      {/* Bottom Footer: User Profile & Dark/Light Mode Toggle */}
+      <div className="relative border-t border-zinc-200/80 p-3 dark:border-zinc-800/80">
+        {/* User Role Switcher Popover */}
+        {showUserMenu && !isCollapsed && (
+          <div className="absolute bottom-full left-3 right-3 mb-2 rounded-xl border border-zinc-200 bg-white p-2.5 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 animate-in fade-in slide-in-from-bottom-2 duration-150 z-50">
+            <div className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+              Alihkan Profil Multi-Tenant
+            </div>
+
+            <div className="space-y-1">
+              <button
+                type="button"
+                onClick={() => {
+                  void loginDemo("ADMIN");
+                  setShowUserMenu(false);
+                }}
+                className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs transition ${
+                  user?.role === "ADMIN"
+                    ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 font-semibold"
+                    : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                }`}
+              >
+                <span>Alex Pratama (Admin)</span>
+                <Badge variant="ready" className="text-[9px] px-1 py-0">
+                  ENTERPRISE
+                </Badge>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  void loginDemo("MEMBER");
+                  setShowUserMenu(false);
+                }}
+                className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs transition ${
+                  user?.role === "MEMBER"
+                    ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 font-semibold"
+                    : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                }`}
+              >
+                <span>Sarah Wijaya (Member)</span>
+                <Badge variant="secondary" className="text-[9px] px-1 py-0">
+                  PRO
+                </Badge>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  void loginDemo("GUEST");
+                  setShowUserMenu(false);
+                }}
+                className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs transition ${
+                  user?.role === "GUEST"
+                    ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 font-semibold"
+                    : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                }`}
+              >
+                <span>Tamu Publik (Guest)</span>
+                <Badge variant="outline" className="text-[9px] px-1 py-0">
+                  FREE
+                </Badge>
+              </button>
+            </div>
+
+            <div className="mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between text-xs">
+              <Link
+                href="/login"
+                onClick={() => setShowUserMenu(false)}
+                className="text-zinc-500 hover:text-emerald-600 dark:hover:text-emerald-400 text-[11px]"
+              >
+                Halaman Login
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  void logout();
+                  setShowUserMenu(false);
+                }}
+                className="flex items-center gap-1 text-[11px] text-rose-600 hover:text-rose-700 dark:text-rose-400"
+              >
+                <LogOut className="h-3 w-3" />
+                <span>Keluar</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* User Card */}
+        {!isCollapsed ? (
+          <div className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg p-1.5 text-left hover:bg-zinc-100 dark:hover:bg-zinc-900 transition"
+              title="Kelola Akun & Profil Demo"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold text-xs shadow-xs">
+                {user ? user.name.slice(0, 2).toUpperCase() : "AP"}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="truncate text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+                    {user?.name || "Alex Pratama"}
+                  </span>
+                  <Badge variant="ready" className="text-[9px] px-1 py-0 shrink-0">
+                    {user?.plan || "ENTERPRISE"}
+                  </Badge>
+                </div>
+                <p className="truncate text-[10px] text-zinc-400">
+                  {user?.email || "alex.admin@enterprise.corp"}
+                </p>
+              </div>
+              <ChevronUp className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+            </button>
+
+            <button
+              onClick={() => setTheme(isDark ? "light" : "dark")}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer"
+              title="Alihkan Tema"
+            >
+              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold text-xs"
+              title={user?.name || "Profil Pengguna"}
+            >
+              {user ? user.name.slice(0, 2).toUpperCase() : "AP"}
+            </button>
+            <button
+              onClick={() => setTheme(isDark ? "light" : "dark")}
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              {isDark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+            </button>
+          </div>
+        )}
       </div>
     </aside>
   );

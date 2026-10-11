@@ -73,10 +73,16 @@ function cosineSimilarity(vecA: number[], vecB: number[]): number {
 
 export const db = {
   // Knowledge Base Methods
-  async getKnowledgeBases(): Promise<KnowledgeBaseItem[]> {
+  async getKnowledgeBases(userId?: string): Promise<KnowledgeBaseItem[]> {
     try {
       if (process.env.DATABASE_URL) {
         const rows = await prisma.knowledgeBase.findMany({
+          where:
+            userId && userId !== "usr_admin_001"
+              ? {
+                  OR: [{ userId }, { id: "default-kb-1" }],
+                }
+              : undefined,
           orderBy: { createdAt: "desc" },
         });
         if (rows.length > 0) {
@@ -92,14 +98,23 @@ export const db = {
     } catch (err) {
       console.warn("[DB] PostgreSQL unavailable, falling back to memory store:", err);
     }
-    return Array.from(memoryStore.knowledgeBases.values());
+
+    const all = Array.from(memoryStore.knowledgeBases.values());
+    if (!userId || userId === "usr_admin_001") {
+      return all;
+    }
+    return all.filter((kb) => kb.id === "default-kb-1" || kb.userId === userId);
   },
 
-  async createKnowledgeBase(name: string, description?: string): Promise<KnowledgeBaseItem> {
+  async createKnowledgeBase(
+    name: string,
+    description?: string,
+    userId = "usr_admin_001"
+  ): Promise<KnowledgeBaseItem> {
     const id = crypto.randomUUID();
     const item: KnowledgeBaseItem = {
       id,
-      userId: "user_enterprise",
+      userId,
       name,
       description: description ?? null,
       createdAt: new Date(),
@@ -110,7 +125,7 @@ export const db = {
         const created = await prisma.knowledgeBase.create({
           data: {
             id,
-            userId: "user_enterprise",
+            userId,
             name,
             description: description ?? null,
           },
@@ -562,11 +577,17 @@ export const db = {
     return item;
   },
 
-  async getChatSessions(knowledgeBaseId: string): Promise<ChatSessionItem[]> {
+  async getChatSessions(
+    knowledgeBaseId: string,
+    userId?: string
+  ): Promise<ChatSessionItem[]> {
     try {
       if (process.env.DATABASE_URL) {
         const rows = await prisma.chatSession.findMany({
-          where: { knowledgeBaseId },
+          where: {
+            knowledgeBaseId,
+            ...(userId && userId !== "usr_admin_001" ? { userId } : {}),
+          },
           orderBy: { createdAt: "desc" },
         });
         return rows.map((r) => ({
@@ -582,7 +603,11 @@ export const db = {
     }
 
     return Array.from(memoryStore.chatSessions.values())
-      .filter((s) => s.knowledgeBaseId === knowledgeBaseId)
+      .filter(
+        (s) =>
+          s.knowledgeBaseId === knowledgeBaseId &&
+          (!userId || userId === "usr_admin_001" || s.userId === userId)
+      )
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   },
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { getSessionFromRequest } from "@/lib/auth/session";
 import { z } from "zod";
 
 const CreateKnowledgeBaseSchema = z.object({
@@ -7,9 +8,10 @@ const CreateKnowledgeBaseSchema = z.object({
   description: z.string().optional(),
 });
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const kbs = await db.getKnowledgeBases();
+    const user = getSessionFromRequest(req);
+    const kbs = await db.getKnowledgeBases(user.id);
     return NextResponse.json({
       success: true,
       data: kbs,
@@ -25,6 +27,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    const user = getSessionFromRequest(req);
     const body = await req.json();
     const validation = CreateKnowledgeBaseSchema.safeParse(body);
 
@@ -41,7 +44,8 @@ export async function POST(req: NextRequest) {
 
     const kb = await db.createKnowledgeBase(
       validation.data.name,
-      validation.data.description
+      validation.data.description,
+      user.id
     );
 
     return NextResponse.json(
