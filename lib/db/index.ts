@@ -10,6 +10,7 @@ import {
   DocumentStatus,
   GroundednessReport,
 } from "@/lib/rag/types";
+import { getBatchEmbeddings } from "@/lib/rag/embedder";
 
 // Global Prisma Singleton for Next.js hot-reloading
 const globalForPrisma = globalThis as unknown as {
@@ -788,5 +789,64 @@ export const db = {
       documents: docsWithChunks,
     };
   },
+
+  async importKnowledgeBaseData(payload: {
+    knowledgeBase: { name?: string; description?: string };
+    documents?: Array<{
+      title: string;
+      fileType?: string;
+      fileSize?: number;
+      chunks?: Array<{
+        chunkIndex?: number;
+        pageNumber?: number | null;
+        content: string;
+      }>;
+    }>;
+  }) {
+    const rawName = payload.knowledgeBase?.name || "Knowledge Base";
+    const kbName = rawName.includes("(Pulihan)") ? rawName : `${rawName} (Pulihan)`;
+    const newKb = await this.createKnowledgeBase(kbName, payload.knowledgeBase?.description);
+
+    let totalDocs = 0;
+    let totalChunks = 0;
+
+    const docs = payload.documents || [];
+    for (const doc of docs) {
+      const chunkList = doc.chunks || [];
+      const createdDoc = await this.createDocument({
+        knowledgeBaseId: newKb.id,
+        title: doc.title,
+        fileUrl: `/uploads/${encodeURIComponent(doc.title)}`,
+        fileType: doc.fileType || "application/pdf",
+        fileSize: doc.fileSize || 1024,
+        status: "INDEXED",
+        chunkCount: chunkList.length,
+      });
+      totalDocs++;
+
+      if (chunkList.length > 0) {
+        const texts = chunkList.map((c) => c.content);
+        const embeddings = await getBatchEmbeddings(texts);
+
+        const chunksToInsert = chunkList.map((ch, i) => ({
+          documentId: createdDoc.id,
+          chunkIndex: ch.chunkIndex ?? i,
+          pageNumber: ch.pageNumber ?? null,
+          content: ch.content,
+          embedding: embeddings[i],
+        }));
+
+        await this.insertChunks(chunksToInsert);
+        totalChunks += chunksToInsert.length;
+      }
+    }
+
+    return {
+      knowledgeBase: newKb,
+      totalDocuments: totalDocs,
+      totalChunks,
+    };
+  },
 };
+
 
