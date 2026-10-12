@@ -48,8 +48,16 @@ Metrik performa, tracing terdistribusi, dan logging dikumpulkan menggunakan Open
 
 export async function POST(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const kbId = searchParams.get("kbId") || "default-kb-1";
+    let kbId = "default-kb-1";
+    try {
+      const body = await req.json();
+      if (body?.knowledgeBaseId) kbId = body.knowledgeBaseId;
+      else if (body?.kbId) kbId = body.kbId;
+    } catch {
+      // Body may be empty if called with query parameter
+      const { searchParams } = new URL(req.url);
+      kbId = searchParams.get("kbId") || "default-kb-1";
+    }
 
     const results = [];
     for (const doc of SEED_DOCUMENTS) {

@@ -16,6 +16,9 @@ import {
   BookOpen,
   ChevronRight,
   ExternalLink,
+  Play,
+  RefreshCw,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -161,6 +164,46 @@ export default function DocsPage() {
   const [selectedLang, setSelectedLang] = React.useState<"curl" | "typescript" | "python">("curl");
   const [copiedKey, setCopiedKey] = React.useState<string | null>(null);
 
+  // Live API Console States
+  const [consoleQuery, setConsoleQuery] = React.useState("Standar enkripsi AES-256 dan ISO 27001");
+  const [consoleMode, setConsoleMode] = React.useState<"hybrid" | "semantic" | "keyword">("hybrid");
+  const [consoleTopK, setConsoleTopK] = React.useState(3);
+  const [consoleReranking, setConsoleReranking] = React.useState(true);
+  const [consoleResponse, setConsoleResponse] = React.useState<any | null>(null);
+  const [consoleLoading, setConsoleLoading] = React.useState(false);
+  const [consoleStatus, setConsoleStatus] = React.useState<number | null>(null);
+  const [consoleLatency, setConsoleLatency] = React.useState<number | null>(null);
+
+  const handleRunConsoleTest = async () => {
+    try {
+      setConsoleLoading(true);
+      setConsoleResponse(null);
+      const start = performance.now();
+      const res = await fetch("/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: consoleQuery,
+          knowledgeBaseId: "default-kb-1",
+          searchMode: consoleMode,
+          topK: consoleTopK,
+          enableReranking: consoleReranking,
+        }),
+      });
+      const elapsed = Math.round(performance.now() - start);
+      setConsoleLatency(elapsed);
+      setConsoleStatus(res.status);
+      const json = await res.json();
+      setConsoleResponse(json);
+      toast.success(`Respons diterima (${res.status} dalam ${elapsed}ms)`);
+    } catch (err: unknown) {
+      const error = err as Error;
+      toast.error(error.message || "Gagal menghubungi endpoint.");
+    } finally {
+      setConsoleLoading(false);
+    }
+  };
+
   const handleCopy = (key: string, text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedKey(key);
@@ -264,6 +307,12 @@ export default function DocsPage() {
                   <a href="#endpoint-health" className="flex items-center justify-between rounded-lg px-2.5 py-1.5 text-zinc-300 hover:bg-zinc-900 transition">
                     <span>GET /api/health</span>
                     <Badge variant="outline" className="text-[9px] px-1 py-0">Status</Badge>
+                  </a>
+                </li>
+                <li>
+                  <a href="#live-console" className="flex items-center justify-between rounded-lg px-2.5 py-1.5 text-zinc-300 hover:bg-zinc-900 transition">
+                    <span>Live API Sandbox</span>
+                    <Badge variant="ready" className="text-[9px] px-1 py-0">Tester</Badge>
                   </a>
                 </li>
               </ul>
@@ -462,6 +511,121 @@ export default function DocsPage() {
 
             <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 font-mono text-xs text-zinc-300">
               GET http://localhost:3000/api/health
+            </div>
+          </section>
+
+          {/* 7. Live Interactive API Console & Sandbox */}
+          <section id="live-console" className="space-y-4 border-t border-zinc-800/80 pt-8 pb-16">
+            <div className="flex items-center gap-2">
+              <Badge variant="ready" className="text-xs">Sandbox</Badge>
+              <h2 className="text-xl font-bold text-white">Live API Console & Test Runner</h2>
+              <Badge variant="secondary" className="text-[10px]">Real-Time</Badge>
+            </div>
+            <p className="text-xs text-zinc-400">
+              Jalankan permintaan langsung ke endpoint <code className="text-emerald-400 font-mono">POST /api/search</code> di peramban Anda untuk mengamati struktur respons, skor kemiripan, dan latensi secara real-time.
+            </p>
+
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5 space-y-4 shadow-xl">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div className="md:col-span-2">
+                  <label className="text-xs font-semibold text-zinc-300">Query Pencarian (Search Term)</label>
+                  <input
+                    type="text"
+                    value={consoleQuery}
+                    onChange={(e) => setConsoleQuery(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:border-emerald-500 focus:outline-none"
+                    placeholder="Masukkan pertanyaan pencarian..."
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-zinc-300">Mode Mesin</label>
+                  <select
+                    value={consoleMode}
+                    onChange={(e) => setConsoleMode(e.target.value as any)}
+                    className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-100 focus:border-emerald-500 focus:outline-none cursor-pointer"
+                  >
+                    <option value="hybrid">Hybrid (RRF Dense+BM25)</option>
+                    <option value="semantic">Semantic (Cosine Only)</option>
+                    <option value="keyword">Keyword (Sparse BM25)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-zinc-300">Top-K</label>
+                  <select
+                    value={consoleTopK}
+                    onChange={(e) => setConsoleTopK(parseInt(e.target.value, 10))}
+                    className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-100 focus:border-emerald-500 focus:outline-none cursor-pointer"
+                  >
+                    <option value={2}>Top 2 Chunks</option>
+                    <option value={3}>Top 3 Chunks</option>
+                    <option value={5}>Top 5 Chunks</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <label className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={consoleReranking}
+                    onChange={(e) => setConsoleReranking(e.target.checked)}
+                    className="rounded accent-emerald-500"
+                  />
+                  <span>Aktifkan Cross-Encoder Re-Ranking</span>
+                </label>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleRunConsoleTest}
+                  disabled={consoleLoading}
+                  className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-500 text-xs shadow-md shadow-emerald-600/20"
+                >
+                  {consoleLoading ? (
+                    <>
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      <span>Mengirim...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-3.5 w-3.5" />
+                      <span>Kirim Permintaan (Send Request)</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* Console Output */}
+              {consoleResponse && (
+                <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-950 p-4 space-y-2 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between border-b border-zinc-850 pb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-zinc-400">Status Respons:</span>
+                      <Badge variant="ready" className="text-[10px]">
+                        {consoleStatus} OK
+                      </Badge>
+                      {consoleLatency !== null && (
+                        <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] font-mono text-zinc-400">
+                          {consoleLatency} ms
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy("console_res", JSON.stringify(consoleResponse, null, 2))}
+                      className="text-[11px] text-zinc-400 hover:text-emerald-400 flex items-center gap-1 cursor-pointer"
+                    >
+                      {copiedKey === "console_res" ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                      <span>{copiedKey === "console_res" ? "Tersalin" : "Salin JSON"}</span>
+                    </button>
+                  </div>
+                  <pre className="max-h-72 overflow-y-auto font-mono text-[11px] text-emerald-300 leading-relaxed">
+                    {JSON.stringify(consoleResponse, null, 2)}
+                  </pre>
+                </div>
+              )}
             </div>
           </section>
         </main>

@@ -31,6 +31,7 @@ import {
   Shield,
   Zap,
   Search,
+  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -84,9 +85,33 @@ export function Sidebar({
   const [editingSessionTitle, setEditingSessionTitle] = React.useState<string>("");
   const [showUserMenu, setShowUserMenu] = React.useState(false);
   const [docSearchQuery, setDocSearchQuery] = React.useState("");
+  const [isSeeding, setIsSeeding] = React.useState(false);
   const { user, loginDemo, logout } = useAuth();
   const { isDark, setTheme } = useTheme();
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const handleSeedDemoDocs = async () => {
+    try {
+      setIsSeeding(true);
+      toast.info("Mengindeks 3 dokumen contoh standar enterprise...");
+      const res = await fetch("/api/seed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ knowledgeBaseId: selectedKbId }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "Gagal memuat dokumen contoh.");
+      }
+      toast.success(json.message || "3 dokumen demo berhasil diindeks!");
+      onRefreshDocs();
+    } catch (err: unknown) {
+      const error = err as Error;
+      toast.error(error.message || "Gagal memuat dokumen contoh.");
+    } finally {
+      setIsSeeding(false);
+    }
+  };
 
   const selectedKb =
     knowledgeBases.find((k) => k.id === selectedKbId) ||
@@ -383,7 +408,16 @@ export function Sidebar({
                 <div className="rounded-lg border border-dashed border-zinc-200 p-4 text-center dark:border-zinc-800">
                   <FileText className="mx-auto h-6 w-6 text-zinc-400" />
                   <p className="mt-1 text-xs text-zinc-500">Belum ada dokumen</p>
-                  <p className="text-[10px] text-zinc-400">Unggah PDF untuk memulai pencarian RAG</p>
+                  <p className="text-[10px] text-zinc-400">Unggah berkas atau muat contoh enterprise</p>
+                  <button
+                    type="button"
+                    onClick={handleSeedDemoDocs}
+                    disabled={isSeeding}
+                    className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950/80 transition cursor-pointer"
+                  >
+                    <Sparkles className="h-3 w-3 text-emerald-500" />
+                    <span>{isSeeding ? "Mengindeks..." : "Muat 3 Dokumen Demo"}</span>
+                  </button>
                 </div>
               )
             ) : filteredDocuments.length === 0 ? (
