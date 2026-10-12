@@ -28,6 +28,8 @@ import {
   ThumbsDown,
   HelpCircle,
   FileJson,
+  Mic,
+  MicOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -95,8 +97,67 @@ export function ChatWorkspace({
   const [copiedMsgId, setCopiedMsgId] = React.useState<string | null>(null);
   const [selectedGroundedness, setSelectedGroundedness] = React.useState<GroundednessReport | null>(null);
   const [scopedDocumentId, setScopedDocumentId] = React.useState<string | null>(null);
+  const [isListening, setIsListening] = React.useState(false);
+  const recognitionRef = React.useRef<any>(null);
   const messagesEndRef = React.useRef<HTMLDivElement | null>(null);
   const streamAccumulatorRef = React.useRef<string>("");
+
+  const handleToggleVoice = () => {
+    if (typeof window === "undefined") return;
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      toast.info("Browser Anda tidak mendukung Web Speech Recognition. Silakan ketik pertanyaan secara manual.");
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = "id-ID";
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        toast.info("Mendengarkan suara... Silakan sampaikan pertanyaan.");
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0]?.[0]?.transcript;
+        if (transcript) {
+          setInput((prev) => (prev ? `${prev} ${transcript}` : transcript));
+          toast.success("Suara berhasil ditranskripsikan!");
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn("Speech recognition error:", event.error);
+        setIsListening(false);
+        if (event.error !== "no-speech") {
+          toast.error(`Kesalahan mikrofon: ${event.error}`);
+        }
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (e) {
+      console.error("Gagal memulai speech recognition:", e);
+      setIsListening(false);
+      toast.error("Gagal mengakses mikrofon peramban.");
+    }
+  };
 
   React.useEffect(() => {
     if (initialPrompt) {
@@ -762,17 +823,34 @@ export function ChatWorkspace({
                 </Badge>
               </div>
 
-              <Button
-                type="button"
-                variant="default"
-                size="sm"
-                onClick={() => handleSendMessage()}
-                disabled={isLoading || !input.trim()}
-                className="h-8 gap-1.5 px-3 text-xs"
-              >
-                <span>Kirim</span>
-                <Send className="h-3.5 w-3.5" />
-              </Button>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="iconSm"
+                  onClick={handleToggleVoice}
+                  className={`h-8 w-8 rounded-lg transition cursor-pointer ${
+                    isListening
+                      ? "bg-rose-100 text-rose-600 dark:bg-rose-950/80 dark:text-rose-400 animate-pulse ring-2 ring-rose-500"
+                      : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                  }`}
+                  title={isListening ? "Hentikan perekaman suara" : "Gunakan input suara (Speech-to-Text)"}
+                >
+                  {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  onClick={() => handleSendMessage()}
+                  disabled={isLoading || !input.trim()}
+                  className="h-8 gap-1.5 px-3 text-xs"
+                >
+                  <span>Kirim</span>
+                  <Send className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
           </div>
         </div>

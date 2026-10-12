@@ -85,6 +85,7 @@ export function Sidebar({
   const [editingSessionTitle, setEditingSessionTitle] = React.useState<string>("");
   const [showUserMenu, setShowUserMenu] = React.useState(false);
   const [docSearchQuery, setDocSearchQuery] = React.useState("");
+  const [sessionSearchQuery, setSessionSearchQuery] = React.useState("");
   const [isSeeding, setIsSeeding] = React.useState(false);
   const { user, loginDemo, logout } = useAuth();
   const { isDark, setTheme } = useTheme();
@@ -142,6 +143,13 @@ export function Sidebar({
       doc.title.toLowerCase().includes(docSearchQuery.toLowerCase())
     );
   }, [documents, docSearchQuery]);
+
+  const filteredSessions = React.useMemo(() => {
+    if (!sessionSearchQuery.trim()) return chatSessions;
+    return chatSessions.filter((s) =>
+      s.title.toLowerCase().includes(sessionSearchQuery.toLowerCase())
+    );
+  }, [chatSessions, sessionSearchQuery]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -523,6 +531,19 @@ export function Sidebar({
               </div>
             )}
 
+            {!isCollapsed && chatSessions.length > 2 && (
+              <div className="relative mb-2">
+                <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-zinc-400" />
+                <input
+                  type="text"
+                  placeholder="Filter sesi chat..."
+                  value={sessionSearchQuery}
+                  onChange={(e) => setSessionSearchQuery(e.target.value)}
+                  className="w-full rounded-md border border-zinc-200 bg-white py-1 pl-7 pr-2 text-[11px] text-zinc-800 placeholder-zinc-400 focus:border-emerald-500 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-200"
+                />
+              </div>
+            )}
+
             {chatSessions.length === 0 ? (
               !isCollapsed && (
                 <div className="rounded-lg border border-dashed border-zinc-200 p-4 text-center dark:border-zinc-800">
@@ -530,9 +551,15 @@ export function Sidebar({
                   <p className="mt-1 text-xs text-zinc-500">Belum ada riwayat sesi</p>
                 </div>
               )
+            ) : filteredSessions.length === 0 ? (
+              !isCollapsed && (
+                <div className="py-4 text-center text-xs text-zinc-400">
+                  Tidak ditemukan sesi yang cocok dengan "{sessionSearchQuery}".
+                </div>
+              )
             ) : (
               <div className="space-y-1">
-                {chatSessions.map((session) => {
+                {filteredSessions.map((session) => {
                   const isEditing = editingSessionId === session.id;
                   return (
                     <div
