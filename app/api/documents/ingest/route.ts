@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ingestDocument } from "@/lib/rag/ingest";
+import { getSessionFromRequest } from "@/lib/auth/session";
+import { PLAN_QUOTAS } from "@/lib/ratelimit";
+import { db } from "@/lib/db";
 import { z } from "zod";
 
 export const maxDuration = 60; // Allow sufficient time for large document parsing and embeddings
@@ -10,6 +13,9 @@ const IngestFormSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const user = getSessionFromRequest(req);
+    const quota = PLAN_QUOTAS[user.plan] || PLAN_QUOTAS.FREE;
+
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const rawKbId = formData.get("knowledgeBaseId") as string | null;
@@ -39,6 +45,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 1. Quota Check: Document count limit
+    const existingDocs = await db.getDocumentsByKb(validation.data.knowledgeBaseId);
+    if (existingDocs.length >= quota.maxDocuments) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Batas kuota dokumen tercapai (${existingDocs.length}/${quota.maxDocuments} dokumen pada paket ${user.plan}). Harap beralih ke paket PRO atau hapus dokumen lama.`,
+        },
+        { status: 403 }
+      );
+    }
+
     // Validate file type
     const validExtensions = [".pdf", ".txt", ".md", ".json", ".csv"];
     const isExtensionValid = validExtensions.some((ext) =>
@@ -55,13 +73,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Limit maximum size to 25MB
-    const MAX_SIZE = 25 * 1024 * 1024;
-    if (file.size > MAX_SIZE) {
+    // 2. Quota Check: Max file size based on plan
+    const maxBytes = quota.maxFileSizeMb * 1024 * 1024;
+    if (file.size > maxBytes) {
       return NextResponse.json(
         {
           success: false,
-          error: "Ukuran file melebihi batas maksimum 25MB.",
+          error: `Ukuran file (${(file.size / (1024 * 1024)).toFixed(1)}MB) melebihi batas paket ${user.plan} (${quota.maxFileSizeMb}MB).`,
         },
         { status: 413 }
       );

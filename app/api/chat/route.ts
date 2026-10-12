@@ -7,11 +7,34 @@ import { performSemanticSearch } from "@/lib/rag/search";
 import { buildStrictGroundingPrompt } from "@/lib/rag/prompt";
 import { evaluateGroundedness } from "@/lib/rag/evaluator";
 import { SearchMode } from "@/lib/rag/types";
+import { getSessionFromRequest } from "@/lib/auth/session";
+import { checkRateLimit, getClientIdentifier } from "@/lib/ratelimit";
 
 export const maxDuration = 45;
 
 export async function POST(req: NextRequest) {
   try {
+    const user = getSessionFromRequest(req);
+    const identifier = getClientIdentifier(req, user);
+    const rateLimit = checkRateLimit(identifier, user.plan);
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: `Batas kuota pertanyaan tercapai (${rateLimit.limit} query/jam pada paket ${user.plan}). Silakan tunggu ${rateLimit.resetInSeconds} detik atau beralih ke paket PRO.`,
+          resetInSeconds: rateLimit.resetInSeconds,
+        },
+        {
+          status: 429,
+          headers: {
+            "X-RateLimit-Limit": String(rateLimit.limit),
+            "X-RateLimit-Remaining": "0",
+            "X-RateLimit-Reset": String(rateLimit.resetInSeconds),
+          },
+        }
+      );
+    }
+
     const body = await req.json();
     const {
       messages,
@@ -122,7 +145,11 @@ export async function POST(req: NextRequest) {
       return result.toTextStreamResponse({
         headers: {
           "x-citations": encodeURIComponent(citationsHeader),
-          "Access-Control-Expose-Headers": "x-citations, x-groundedness",
+          "X-RateLimit-Limit": String(rateLimit.limit),
+          "X-RateLimit-Remaining": String(rateLimit.remaining),
+          "X-RateLimit-Reset": String(rateLimit.resetInSeconds),
+          "Access-Control-Expose-Headers":
+            "x-citations, x-groundedness, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset",
         },
       });
     }
@@ -175,7 +202,11 @@ export async function POST(req: NextRequest) {
         "Content-Type": "text/plain; charset=utf-8",
         "x-citations": encodeURIComponent(citationsHeader),
         "x-groundedness": encodeURIComponent(groundednessHeader),
-        "Access-Control-Expose-Headers": "x-citations, x-groundedness",
+        "X-RateLimit-Limit": String(rateLimit.limit),
+        "X-RateLimit-Remaining": String(rateLimit.remaining),
+        "X-RateLimit-Reset": String(rateLimit.resetInSeconds),
+        "Access-Control-Expose-Headers":
+          "x-citations, x-groundedness, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset",
       },
     });
   } catch (error: unknown) {

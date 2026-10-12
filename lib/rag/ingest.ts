@@ -2,6 +2,8 @@ import { db } from "@/lib/db";
 import { parseDocumentBuffer } from "./parser";
 import { chunkDocumentPages } from "./chunker";
 import { getBatchEmbeddings } from "./embedder";
+import { validateBinaryFile } from "./validator";
+import { sanitizeDocumentText } from "./sanitizer";
 import { IngestionResult } from "./types";
 
 export interface IngestDocumentParams {
@@ -15,12 +17,14 @@ export interface IngestDocumentParams {
 
 /**
  * Orchestrates the full ingestion pipeline:
+ * 0. Binary magic bytes validation
  * 1. Document record creation (PROCESSING)
  * 2. PDF / Text Parsing & Page splitting
- * 3. Recursive chunking with overlap & page metadata
- * 4. Batch vector embedding generation
- * 5. Vector database persistence (pgvector HNSW)
- * 6. Document status update (INDEXED / FAILED)
+ * 3. PII & Secret Redaction (Sanitization)
+ * 4. Recursive chunking with overlap & page metadata
+ * 5. Batch vector embedding generation
+ * 6. Vector database persistence (pgvector HNSW)
+ * 7. Document status update (INDEXED / FAILED)
  */
 export async function ingestDocument(
   params: IngestDocumentParams
@@ -34,6 +38,12 @@ export async function ingestDocument(
     fileSize,
     fileUrl = `/uploads/${encodeURIComponent(filename)}`,
   } = params;
+
+  // Step 0: Security & Binary Magic Byte Validation
+  const fileValidation = validateBinaryFile(fileBuffer, mimeType);
+  if (!fileValidation.valid) {
+    throw new Error(fileValidation.error || "Validasi keamanan struktur berkas gagal.");
+  }
 
   // Step 1: Create initial document record with PROCESSING status
   const document = await db.createDocument({
@@ -54,8 +64,17 @@ export async function ingestDocument(
       throw new Error("Dokumen kosong atau teks tidak dapat diekstraksi dari file ini.");
     }
 
+    // Step 2.5: PII & Secret Sanitization
+    const sanitizedPages = parsed.pages.map((p) => {
+      const sanitized = sanitizeDocumentText(p.text);
+      return {
+        ...p,
+        text: sanitized.sanitizedText,
+      };
+    });
+
     // Step 3: Recursive chunking (500-700 tokens, 100 token overlap)
-    const chunks = chunkDocumentPages(parsed.pages, {
+    const chunks = chunkDocumentPages(sanitizedPages, {
       maxTokens: 600,
       overlapTokens: 100,
       separators: ["\n\n", "\n", " ", ""],
