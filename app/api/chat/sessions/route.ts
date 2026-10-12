@@ -13,8 +13,9 @@ export async function GET(req: NextRequest) {
     const user = getSessionFromRequest(req);
     const { searchParams } = new URL(req.url);
     const kbId = searchParams.get("kbId") || "default-kb-1";
+    const effectiveUserId = user?.id || "usr_guest_003";
 
-    const sessions = await db.getChatSessions(kbId, user.id);
+    const sessions = await db.getChatSessions(kbId, effectiveUserId);
     return NextResponse.json({
       success: true,
       data: sessions,
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
     const session = await db.createChatSession({
       knowledgeBaseId: validation.data.knowledgeBaseId,
       title: validation.data.title,
-      userId: user.id,
+      userId: user?.id || "usr_guest_003",
     });
 
     return NextResponse.json(

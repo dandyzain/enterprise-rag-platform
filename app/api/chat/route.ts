@@ -23,15 +23,16 @@ export async function POST(req: NextRequest) {
     );
 
     const user = getSessionFromRequest(req);
+    const effectivePlan = user?.plan || "FREE";
     const identifier = getClientIdentifier(req, user);
     const rateLimit = isUsingByok
       ? { allowed: true, limit: 999999, remaining: 999999, resetInSeconds: 0 }
-      : checkRateLimit(identifier, user.plan);
+      : checkRateLimit(identifier, effectivePlan);
 
     if (!rateLimit.allowed) {
       return NextResponse.json(
         {
-          error: `Batas kuota pertanyaan tercapai (${rateLimit.limit} query/jam pada paket ${user.plan}). Silakan tunggu ${rateLimit.resetInSeconds} detik, beralih ke paket PRO, atau gunakan Bring-Your-Own-Key (BYOK) di Pengaturan.`,
+          error: `Batas kuota pertanyaan tercapai (${rateLimit.limit} query/jam pada paket ${effectivePlan}). Silakan tunggu ${rateLimit.resetInSeconds} detik, beralih ke paket PRO, atau gunakan Bring-Your-Own-Key (BYOK) di Pengaturan.`,
           resetInSeconds: rateLimit.resetInSeconds,
         },
         {

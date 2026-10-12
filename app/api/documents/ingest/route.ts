@@ -14,7 +14,8 @@ const IngestFormSchema = z.object({
 export async function POST(req: NextRequest) {
   try {
     const user = getSessionFromRequest(req);
-    const quota = PLAN_QUOTAS[user.plan] || PLAN_QUOTAS.FREE;
+    const plan = user?.plan || "FREE";
+    const quota = PLAN_QUOTAS[plan] || PLAN_QUOTAS.FREE;
 
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: `Batas kuota dokumen tercapai (${existingDocs.length}/${quota.maxDocuments} dokumen pada paket ${user.plan}). Harap beralih ke paket PRO atau hapus dokumen lama.`,
+          error: `Batas kuota dokumen tercapai (${existingDocs.length}/${quota.maxDocuments} dokumen pada paket ${plan}). Harap beralih ke paket PRO atau hapus dokumen lama.`,
         },
         { status: 403 }
       );
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: `Ukuran file (${(file.size / (1024 * 1024)).toFixed(1)}MB) melebihi batas paket ${user.plan} (${quota.maxFileSizeMb}MB).`,
+          error: `Ukuran file (${(file.size / (1024 * 1024)).toFixed(1)}MB) melebihi batas paket ${plan} (${quota.maxFileSizeMb}MB).`,
         },
         { status: 413 }
       );

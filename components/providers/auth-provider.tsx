@@ -114,11 +114,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
+      setIsLoading(true);
       await fetch("/api/auth/logout", { method: "POST" });
       setUser(null);
       toast.info("Anda telah keluar dari sesi.");
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
     } catch {
-      // ignore
+      setUser(null);
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 

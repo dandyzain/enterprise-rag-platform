@@ -73,9 +73,9 @@ export function verifySessionToken(token: string): UserSession | null {
 
 /**
  * Extract active authenticated user session from NextRequest cookies or Authorization header.
- * Defaults to demo admin user if no session is set, ensuring seamless onboarding.
+ * Returns null if no valid session token exists.
  */
-export function getSessionFromRequest(req: NextRequest): UserSession {
+export function getSessionFromRequest(req: NextRequest): UserSession | null {
   // 1. Try Cookie
   const cookieVal = req.cookies.get(AUTH_COOKIE_NAME)?.value;
   if (cookieVal) {
@@ -91,8 +91,8 @@ export function getSessionFromRequest(req: NextRequest): UserSession {
     if (verified) return verified;
   }
 
-  // 3. Fallback: Default Admin Session
-  return DEMO_USERS.admin;
+  // 3. No authenticated session
+  return null;
 }
 
 /**

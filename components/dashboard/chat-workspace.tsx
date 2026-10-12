@@ -30,10 +30,13 @@ import {
   FileJson,
   Mic,
   MicOff,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { useTheme } from "@/components/providers/theme-provider";
 
 export interface MessageUI {
   id: string;
@@ -91,6 +94,7 @@ export function ChatWorkspace({
   onOpenOnboarding,
   initialPrompt,
 }: ChatWorkspaceProps) {
+  const { isDark, toggleTheme } = useTheme();
   const [messages, setMessages] = React.useState<MessageUI[]>([]);
   const [input, setInput] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
@@ -568,6 +572,21 @@ export function ChatWorkspace({
             title="Buka Pengaturan RAG"
           >
             <Sliders className="h-3.5 w-3.5" />
+          </Button>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="iconSm"
+            onClick={toggleTheme}
+            className="h-8 w-8 text-zinc-600 dark:text-zinc-300"
+            title={isDark ? "Ganti ke Tema Terang (Light)" : "Ganti ke Tema Gelap (Dark)"}
+          >
+            {isDark ? (
+              <Sun className="h-3.5 w-3.5 text-amber-500" />
+            ) : (
+              <Moon className="h-3.5 w-3.5 text-zinc-600" />
+            )}
           </Button>
         </div>
       </header>

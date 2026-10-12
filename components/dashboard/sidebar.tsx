@@ -823,31 +823,50 @@ export function Sidebar({
               className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg p-1.5 text-left hover:bg-zinc-100 dark:hover:bg-zinc-900 transition"
               title="Kelola Akun & Profil Demo"
             >
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold text-xs shadow-xs">
-                {user ? user.name.slice(0, 2).toUpperCase() : "AP"}
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-700 text-white font-bold text-xs shadow-xs">
+                {user ? user.name.slice(0, 2).toUpperCase() : <User className="h-4 w-4" />}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="truncate text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-                    {user?.name || "Alex Pratama"}
-                  </span>
-                  <Badge variant="ready" className="text-[9px] px-1 py-0 shrink-0">
-                    {user?.plan || "ENTERPRISE"}
-                  </Badge>
-                </div>
-                <p className="truncate text-[10px] text-zinc-400">
-                  {user?.email || "alex.admin@enterprise.corp"}
-                </p>
+                {user ? (
+                  <>
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+                        {user.name}
+                      </span>
+                      <Badge variant="ready" className="text-[9px] px-1 py-0 shrink-0">
+                        {user.plan}
+                      </Badge>
+                    </div>
+                    <p className="truncate text-[10px] text-zinc-400">
+                      {user.email}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+                        Belum Masuk
+                      </span>
+                      <Badge variant="secondary" className="text-[9px] px-1 py-0 shrink-0">
+                        GUEST
+                      </Badge>
+                    </div>
+                    <p className="truncate text-[10px] text-zinc-400">
+                      Klik untuk Masuk
+                    </p>
+                  </>
+                )}
               </div>
               <ChevronUp className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
             </button>
 
             <button
+              type="button"
               onClick={() => setTheme(isDark ? "light" : "dark")}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer"
-              title="Alihkan Tema"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer shadow-xs"
+              title={isDark ? "Ganti ke Tema Terang (Light)" : "Ganti ke Tema Gelap (Dark)"}
             >
-              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              {isDark ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-zinc-700" />}
             </button>
           </div>
         ) : (

@@ -2,6 +2,14 @@
 // PII Sanitization, Binary Magic Bytes Inspection, and Tiered Rate Limiting
 
 async function main() {
+  // Login as admin for ingestion quota
+  const adminLoginRes = await fetch("http://localhost:3000/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ demoRole: "ADMIN" }),
+  });
+  const adminCookie = (adminLoginRes.headers.get("set-cookie") || "").split(";")[0];
+
   console.log("=== 1. Test Binary Magic Bytes Validation on Ingest Endpoint ===");
   // Create fake PDF with DOS/Windows MZ executable signature
   const fakeExeBytes = Buffer.from([0x4d, 0x5a, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00]);
@@ -12,6 +20,7 @@ async function main() {
 
   const rejectRes = await fetch("http://localhost:3000/api/documents/ingest", {
     method: "POST",
+    headers: { Cookie: adminCookie },
     body: fakeForm,
   });
 
@@ -37,6 +46,7 @@ Kebijakan Operasional: Seluruh data karyawan dilindungi undang-undang PDP dan IS
 
   const ingestRes = await fetch("http://localhost:3000/api/documents/ingest", {
     method: "POST",
+    headers: { Cookie: adminCookie },
     body: safeForm,
   });
 

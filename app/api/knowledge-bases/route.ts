@@ -11,7 +11,7 @@ const CreateKnowledgeBaseSchema = z.object({
 export async function GET(req: NextRequest) {
   try {
     const user = getSessionFromRequest(req);
-    const kbs = await db.getKnowledgeBases(user.id);
+    const kbs = await db.getKnowledgeBases(user?.id || "usr_guest_003");
     return NextResponse.json({
       success: true,
       data: kbs,
@@ -28,6 +28,12 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const user = getSessionFromRequest(req);
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "Silakan masuk terlebih dahulu untuk membuat Knowledge Base." },
+        { status: 401 }
+      );
+    }
     const body = await req.json();
     const validation = CreateKnowledgeBaseSchema.safeParse(body);
 

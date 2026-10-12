@@ -13,15 +13,19 @@ import {
   Mail,
   User,
   Sparkles,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/components/providers/auth-provider";
+import { useTheme } from "@/components/providers/theme-provider";
 import { UserRole } from "@/lib/auth/types";
 
 export default function LoginPage() {
   const router = useRouter();
   const { user, login, register, loginDemo, isLoading } = useAuth();
+  const { isDark, toggleTheme } = useTheme();
 
   const [mode, setMode] = React.useState<"login" | "register" | "demo">("demo");
   const [email, setEmail] = React.useState("");
@@ -61,6 +65,18 @@ export default function LoginPage() {
     <div className="relative min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-zinc-100 p-4 selection:bg-emerald-500 selection:text-white">
       {/* Background Subtle Gradient Glow */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_60%_at_50%_20%,rgba(16,185,129,0.12),rgba(255,255,255,0))] pointer-events-none" />
+
+      {/* Top right theme toggle */}
+      <div className="absolute top-4 right-4 z-20">
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/80 text-zinc-300 hover:text-white transition cursor-pointer"
+          title={isDark ? "Ganti ke Tema Terang (Light)" : "Ganti ke Tema Gelap (Dark)"}
+        >
+          {isDark ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-zinc-300" />}
+        </button>
+      </div>
 
       {/* Brand Header */}
       <div className="relative z-10 mb-8 flex flex-col items-center text-center">
