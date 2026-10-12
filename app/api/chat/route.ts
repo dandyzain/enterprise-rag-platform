@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { streamText } from "ai";
-import { openai } from "@ai-sdk/openai";
-import { google } from "@ai-sdk/google";
+import { openai, createOpenAI } from "@ai-sdk/openai";
+import { google, createGoogleGenerativeAI } from "@ai-sdk/google";
 import { db } from "@/lib/db";
 import { performSemanticSearch } from "@/lib/rag/search";
 import { buildStrictGroundingPrompt } from "@/lib/rag/prompt";
@@ -14,14 +14,24 @@ export const maxDuration = 45;
 
 export async function POST(req: NextRequest) {
   try {
+    // Check for Bring-Your-Own-Key (BYOK)
+    const customOpenAiKey = req.headers.get("x-custom-openai-key")?.trim() || "";
+    const customGeminiKey = req.headers.get("x-custom-gemini-key")?.trim() || "";
+    const isUsingByok = Boolean(
+      (customOpenAiKey && customOpenAiKey.startsWith("sk-")) ||
+      (customGeminiKey && customGeminiKey.length > 15)
+    );
+
     const user = getSessionFromRequest(req);
     const identifier = getClientIdentifier(req, user);
-    const rateLimit = checkRateLimit(identifier, user.plan);
+    const rateLimit = isUsingByok
+      ? { allowed: true, limit: 999999, remaining: 999999, resetInSeconds: 0 }
+      : checkRateLimit(identifier, user.plan);
 
     if (!rateLimit.allowed) {
       return NextResponse.json(
         {
-          error: `Batas kuota pertanyaan tercapai (${rateLimit.limit} query/jam pada paket ${user.plan}). Silakan tunggu ${rateLimit.resetInSeconds} detik atau beralih ke paket PRO.`,
+          error: `Batas kuota pertanyaan tercapai (${rateLimit.limit} query/jam pada paket ${user.plan}). Silakan tunggu ${rateLimit.resetInSeconds} detik, beralih ke paket PRO, atau gunakan Bring-Your-Own-Key (BYOK) di Pengaturan.`,
           resetInSeconds: rateLimit.resetInSeconds,
         },
         {
@@ -104,17 +114,23 @@ export async function POST(req: NextRequest) {
     // Citations header JSON for frontend slide-over sheet
     const citationsHeader = JSON.stringify(searchResult.citations);
 
-    // 3. Check for API keys: OpenAI or Google Gemini
-    const hasOpenAI = Boolean(process.env.OPENAI_API_KEY);
-    const hasGemini = Boolean(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
+    // 3. Check for API keys: Custom BYOK or Host Environment (OpenAI / Google Gemini)
+    const hasOpenAI = Boolean(customOpenAiKey || process.env.OPENAI_API_KEY);
+    const hasGemini = Boolean(customGeminiKey || process.env.GOOGLE_GENERATIVE_AI_API_KEY);
 
     if (hasOpenAI || hasGemini) {
-      const selectedModel =
-        modelProvider === "google" && hasGemini
-          ? google("gemini-1.5-flash")
-          : hasOpenAI
-          ? openai("gpt-4o-mini")
+      let selectedModel;
+      if (modelProvider === "google" && hasGemini) {
+        selectedModel = customGeminiKey
+          ? createGoogleGenerativeAI({ apiKey: customGeminiKey })("gemini-1.5-flash")
           : google("gemini-1.5-flash");
+      } else if (customOpenAiKey) {
+        selectedModel = createOpenAI({ apiKey: customOpenAiKey })("gpt-4o-mini");
+      } else if (process.env.OPENAI_API_KEY) {
+        selectedModel = openai("gpt-4o-mini");
+      } else {
+        selectedModel = google("gemini-1.5-flash");
+      }
 
       const result = streamText({
         model: selectedModel,

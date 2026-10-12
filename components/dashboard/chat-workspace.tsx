@@ -159,9 +159,19 @@ export function ChatWorkspace({
     setIsLoading(true);
 
     try {
+      const chatHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (ragSettings.customOpenAiKey) {
+        chatHeaders["x-custom-openai-key"] = ragSettings.customOpenAiKey;
+      }
+      if (ragSettings.customGeminiKey) {
+        chatHeaders["x-custom-gemini-key"] = ragSettings.customGeminiKey;
+      }
+
       const response = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: chatHeaders,
         body: JSON.stringify({
           messages: [...messages, userMsg].map((m) => ({
             role: m.role,
@@ -179,7 +189,37 @@ export function ChatWorkspace({
       });
 
       if (!response.ok) {
-        throw new Error("Gagal memperoleh respons dari RAG engine.");
+        let errMsg = "Gagal memperoleh respons dari RAG engine.";
+        try {
+          const errJson = await response.json();
+          if (errJson.error) errMsg = errJson.error;
+        } catch {}
+
+        if (response.status === 429) {
+          toast.error("Batas Kuota Pertanyaan Tercapai");
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: assistantMsgId,
+              role: "assistant",
+              content: `⚠️ **Batas Kuota Pertanyaan Tercapai**\n\n${errMsg}\n\n💡 **Solusi Publik:** Anda dapat mengaktifkan fitur **Bring-Your-Own-Key (BYOK)** di menu **Pengaturan** (ikon gerigi di atas) dengan memasukkan OpenAI atau Gemini API key pribadi Anda untuk menikmati query tanpa batasan host.`,
+            },
+          ]);
+          setIsLoading(false);
+          return;
+        }
+
+        toast.error(errMsg);
+        throw new Error(errMsg);
+      }
+
+      // Check remaining rate limit quota
+      const remainingHeader = response.headers.get("x-ratelimit-remaining");
+      if (remainingHeader !== null) {
+        const remaining = parseInt(remainingHeader, 10);
+        if (!isNaN(remaining) && remaining <= 3 && remaining > 0) {
+          toast.warning(`Perhatian: Tersisa ${remaining} query pada kuota jam ini.`);
+        }
       }
 
       // Parse citations and groundedness from headers if present

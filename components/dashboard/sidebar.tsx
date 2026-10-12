@@ -27,6 +27,9 @@ import {
   UserCheck,
   ShieldCheck,
   ChevronUp,
+  Share2,
+  Shield,
+  Zap,
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -94,6 +97,17 @@ export function Sidebar({
   const totalBytes = documents.reduce((sum, d) => sum + (d.fileSize || 0), 0);
   const chunkLimit = 50000;
   const usagePercent = Math.min(100, Math.round((totalChunks / chunkLimit) * 100));
+
+  const userPlan = (user?.plan || "FREE") as "FREE" | "PRO" | "ENTERPRISE";
+  const planLimits = {
+    FREE: { queryPerHour: 15, maxDocs: 3, maxFileSize: "10 MB" },
+    PRO: { queryPerHour: 120, maxDocs: 25, maxFileSize: "25 MB" },
+    ENTERPRISE: { queryPerHour: 1000, maxDocs: 500, maxFileSize: "50 MB" },
+  }[userPlan] || { queryPerHour: 15, maxDocs: 3, maxFileSize: "10 MB" };
+  const docUsagePercent = Math.min(
+    100,
+    Math.round((documents.length / planLimits.maxDocs) * 100)
+  );
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -186,6 +200,19 @@ export function Sidebar({
                 Knowledge Base
               </label>
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const url = `${window.location.origin}/dashboard?kb=${encodeURIComponent(selectedKbId)}`;
+                    void navigator.clipboard.writeText(url);
+                    toast.success("Tautan akses Knowledge Base disalin ke papan klip!");
+                  }}
+                  className="flex items-center gap-1 text-[11px] font-medium text-zinc-500 hover:text-emerald-600 dark:hover:text-emerald-400"
+                  title="Salin Tautan Akses Publik Knowledge Base"
+                >
+                  <Share2 className="h-3 w-3" />
+                  <span>Bagikan</span>
+                </button>
                 <button
                   type="button"
                   onClick={() =>
@@ -537,8 +564,42 @@ export function Sidebar({
       </div>
 
       {/* Vector Capacity Indicator & Storage Statistics */}
+      {/* Vector Capacity Indicator & Storage Statistics */}
       {!isCollapsed && (
-        <div className="border-t border-zinc-200/80 p-3.5 dark:border-zinc-800/80">
+        <div className="border-t border-zinc-200/80 p-3.5 dark:border-zinc-800/80 space-y-2.5">
+          {/* Public Plan & Quota Card */}
+          <div className="rounded-xl border border-zinc-200/80 bg-white/70 p-3 shadow-2xs dark:border-zinc-800/80 dark:bg-zinc-900/40">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 font-semibold text-[11px] text-zinc-800 dark:text-zinc-200">
+                <Shield className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>Paket {userPlan}</span>
+              </div>
+              <span className="font-mono text-[10px] text-zinc-500">
+                {planLimits.queryPerHour} q/jam
+              </span>
+            </div>
+
+            <div className="mt-2 flex items-center justify-between text-[10px] text-zinc-500">
+              <span>Kuota Dokumen</span>
+              <span className="font-mono font-medium text-zinc-700 dark:text-zinc-300">
+                {documents.length} / {planLimits.maxDocs} file
+              </span>
+            </div>
+            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  docUsagePercent >= 100
+                    ? "bg-rose-500"
+                    : docUsagePercent >= 80
+                    ? "bg-amber-500"
+                    : "bg-emerald-500"
+                }`}
+                style={{ width: `${Math.max(6, docUsagePercent)}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Storage & Vector Chunks Card */}
           <div className="rounded-xl border border-zinc-200/80 bg-white/70 p-3 shadow-2xs dark:border-zinc-800/80 dark:bg-zinc-900/40">
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-1.5 text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">

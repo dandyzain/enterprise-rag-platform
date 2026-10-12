@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { X, Sliders, Check, Layers, Cpu, FileText } from "lucide-react";
+import { X, Sliders, Check, Layers, Cpu, FileText, Key, Sparkles, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { SearchMode } from "@/lib/rag/types";
@@ -12,6 +12,8 @@ export interface RagSettings {
   modelProvider: "openai" | "google";
   searchMode: SearchMode;
   enableReranking: boolean;
+  customOpenAiKey?: string;
+  customGeminiKey?: string;
 }
 
 interface SettingsModalProps {
@@ -28,6 +30,7 @@ export function SettingsModal({
   onSave,
 }: SettingsModalProps) {
   const [localSettings, setLocalSettings] = React.useState<RagSettings>(settings);
+  const [showKeys, setShowKeys] = React.useState(false);
 
   // Sync local state when incoming settings prop changes
   React.useEffect(() => {
@@ -275,6 +278,80 @@ export function SettingsModal({
                 </div>
                 <div className="text-[11px] text-zinc-500">Gemini 1.5 Flash</div>
               </button>
+            </div>
+          </div>
+
+          {/* Bring-Your-Own-Key (BYOK) Section */}
+          <div className="rounded-xl border border-zinc-200/90 bg-zinc-50/50 p-3.5 dark:border-zinc-800 dark:bg-zinc-900/40">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-400">
+                  <Key className="h-3.5 w-3.5" />
+                </span>
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+                    <span>Bring-Your-Own-Key (BYOK)</span>
+                    {Boolean(localSettings.customOpenAiKey || localSettings.customGeminiKey) && (
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">
+                        <Sparkles className="h-2.5 w-2.5" /> Aktif
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-zinc-500">
+                    Gunakan API key pribadi untuk bypass batas kuota publik
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowKeys(!showKeys)}
+                className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                title={showKeys ? "Sembunyikan Kunci" : "Tampilkan Kunci"}
+              >
+                {showKeys ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+
+            <div className="mt-3 space-y-2.5">
+              <div>
+                <label className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400">
+                  Custom OpenAI API Key (sk-...)
+                </label>
+                <input
+                  type={showKeys ? "text" : "password"}
+                  placeholder="sk-proj-..."
+                  value={localSettings.customOpenAiKey || ""}
+                  onChange={(e) =>
+                    setLocalSettings((prev) => ({
+                      ...prev,
+                      customOpenAiKey: e.target.value.trim(),
+                    }))
+                  }
+                  className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 font-mono text-xs text-zinc-800 placeholder-zinc-400 focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400">
+                  Custom Google Gemini API Key (AIzaSy...)
+                </label>
+                <input
+                  type={showKeys ? "text" : "password"}
+                  placeholder="AIzaSy..."
+                  value={localSettings.customGeminiKey || ""}
+                  onChange={(e) =>
+                    setLocalSettings((prev) => ({
+                      ...prev,
+                      customGeminiKey: e.target.value.trim(),
+                    }))
+                  }
+                  className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 font-mono text-xs text-zinc-800 placeholder-zinc-400 focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200"
+                />
+              </div>
+
+              <p className="text-[10px] text-zinc-400 leading-tight">
+                Privasi Terjamin: API Key disimpan hanya di browser lokal Anda (Local Storage) dan dienkripsi saat transit via HTTPS.
+              </p>
             </div>
           </div>
         </div>

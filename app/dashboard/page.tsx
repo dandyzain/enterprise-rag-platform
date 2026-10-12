@@ -46,6 +46,30 @@ export default function DashboardPage() {
     enableReranking: true,
   });
 
+  // Load URL query param for shared Knowledge Base and persistent BYOK settings from localStorage
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const urlKb = params.get("kb");
+      if (urlKb) {
+        setSelectedKbId(urlKb);
+      }
+
+      try {
+        const savedSettings = localStorage.getItem("enterprise_rag_byok_settings");
+        if (savedSettings) {
+          const parsed = JSON.parse(savedSettings);
+          setRagSettings((prev) => ({
+            ...prev,
+            ...parsed,
+          }));
+        }
+      } catch (e) {
+        console.warn("Failed to load BYOK settings from localStorage:", e);
+      }
+    }
+  }, []);
+
   const loadDocuments = React.useCallback(async (kbId: string) => {
     try {
       const res = await fetch(`/api/documents?kbId=${encodeURIComponent(kbId)}`);
@@ -284,7 +308,16 @@ export default function DashboardPage() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         settings={ragSettings}
-        onSave={(newSettings) => setRagSettings(newSettings)}
+        onSave={(newSettings) => {
+          setRagSettings(newSettings);
+          if (typeof window !== "undefined") {
+            try {
+              localStorage.setItem("enterprise_rag_byok_settings", JSON.stringify(newSettings));
+            } catch (e) {
+              console.warn("Failed to save BYOK settings:", e);
+            }
+          }
+        }}
       />
 
       {/* 8. Semantic Search Playground Modal */}
