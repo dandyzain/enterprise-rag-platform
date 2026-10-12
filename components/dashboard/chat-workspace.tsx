@@ -24,6 +24,10 @@ import {
   Search,
   Activity,
   Filter,
+  ThumbsUp,
+  ThumbsDown,
+  HelpCircle,
+  FileJson,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +39,7 @@ export interface MessageUI {
   content: string;
   citations?: CitationItem[];
   groundedness?: GroundednessReport | null;
+  feedback?: "like" | "dislike";
 }
 
 interface ChatWorkspaceProps {
@@ -48,6 +53,8 @@ interface ChatWorkspaceProps {
   onNewChat: () => void;
   onOpenSearchPlayground: () => void;
   onOpenAnalytics: () => void;
+  onOpenOnboarding?: () => void;
+  initialPrompt?: string;
 }
 
 const PROMPT_STARTERS = [
@@ -79,6 +86,8 @@ export function ChatWorkspace({
   onNewChat,
   onOpenSearchPlayground,
   onOpenAnalytics,
+  onOpenOnboarding,
+  initialPrompt,
 }: ChatWorkspaceProps) {
   const [messages, setMessages] = React.useState<MessageUI[]>([]);
   const [input, setInput] = React.useState("");
@@ -88,6 +97,12 @@ export function ChatWorkspace({
   const [scopedDocumentId, setScopedDocumentId] = React.useState<string | null>(null);
   const messagesEndRef = React.useRef<HTMLDivElement | null>(null);
   const streamAccumulatorRef = React.useRef<string>("");
+
+  React.useEffect(() => {
+    if (initialPrompt) {
+      setInput(initialPrompt);
+    }
+  }, [initialPrompt]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -347,6 +362,52 @@ export function ChatWorkspace({
     toast.success("Percakapan berhasil diekspor sebagai Markdown (.md).");
   };
 
+  const handleExportJson = () => {
+    if (messages.length === 0) {
+      toast.info("Tidak ada percakapan untuk diekspor.");
+      return;
+    }
+
+    const exportData = {
+      timestamp: new Date().toISOString(),
+      knowledgeBaseId,
+      sessionTitle: activeSessionId || "Default Session",
+      totalMessages: messages.length,
+      messages: messages.map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        citations: m.citations || [],
+        groundedness: m.groundedness || null,
+        feedback: m.feedback || null,
+      })),
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: "application/json;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `cortex-rag-session-${Date.now()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success("Percakapan berhasil diekspor sebagai JSON (.json).");
+  };
+
+  const handleFeedback = (msgId: string, type: "like" | "dislike") => {
+    setMessages((prev) =>
+      prev.map((m) => (m.id === msgId ? { ...m, feedback: type } : m))
+    );
+    toast.success(
+      type === "like"
+        ? "Terima kasih! Umpan balik positif dicatat."
+        : "Terima kasih! Catatan evaluasi disimpan untuk peningkatan akurasi."
+    );
+  };
+
   return (
     <div className="relative flex flex-1 flex-col h-full overflow-hidden bg-white dark:bg-zinc-950">
       {/* Top Subtle Header Bar */}
@@ -405,11 +466,37 @@ export function ChatWorkspace({
             size="sm"
             onClick={handleExportChat}
             className="h-8 gap-1.5 text-xs text-zinc-600 dark:text-zinc-300"
-            title="Ekspor percakapan ke Markdown"
+            title="Ekspor percakapan ke Markdown (.md)"
           >
             <Download className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Ekspor</span>
+            <span className="hidden sm:inline">.MD</span>
           </Button>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleExportJson}
+            className="h-8 gap-1.5 text-xs text-zinc-600 dark:text-zinc-300"
+            title="Ekspor percakapan ke JSON (.json)"
+          >
+            <FileJson className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">.JSON</span>
+          </Button>
+
+          {onOpenOnboarding && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onOpenOnboarding}
+              className="h-8 gap-1.5 text-xs text-zinc-600 dark:text-zinc-300"
+              title="Buka Panduan Publik & Quick Tour"
+            >
+              <HelpCircle className="h-3.5 w-3.5 text-indigo-500" />
+              <span className="hidden lg:inline">Panduan</span>
+            </Button>
+          )}
 
           <Button
             type="button"
@@ -549,24 +636,50 @@ export function ChatWorkspace({
                         )}
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => handleCopyMessage(msg.id, msg.content)}
-                        className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition"
-                        title="Salin jawaban"
-                      >
-                        {copiedMsgId === msg.id ? (
-                          <>
-                            <Check className="h-3 w-3 text-emerald-500" />
-                            <span className="text-emerald-500">Tersalin</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="h-3 w-3" />
-                            <span>Salin</span>
-                          </>
-                        )}
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleFeedback(msg.id, "like")}
+                          className={`rounded p-1 text-[11px] transition cursor-pointer ${
+                            msg.feedback === "like"
+                              ? "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 dark:text-emerald-400"
+                              : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                          }`}
+                          title="Beri rating jawaban akurat (Suka)"
+                        >
+                          <ThumbsUp className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleFeedback(msg.id, "dislike")}
+                          className={`rounded p-1 text-[11px] transition cursor-pointer ${
+                            msg.feedback === "dislike"
+                              ? "text-rose-600 bg-rose-50 dark:bg-rose-950/60 dark:text-rose-400"
+                              : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                          }`}
+                          title="Beri rating jawaban kurang akurat (Tidak Suka)"
+                        >
+                          <ThumbsDown className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyMessage(msg.id, msg.content)}
+                          className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition ml-1 cursor-pointer"
+                          title="Salin jawaban"
+                        >
+                          {copiedMsgId === msg.id ? (
+                            <>
+                              <Check className="h-3 w-3 text-emerald-500" />
+                              <span className="text-emerald-500">Tersalin</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3 w-3" />
+                              <span>Salin</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ) : (

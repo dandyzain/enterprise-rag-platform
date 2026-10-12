@@ -10,6 +10,7 @@ import { DocumentDetailsModal } from "@/components/dashboard/document-details-mo
 import { SettingsModal, RagSettings } from "@/components/dashboard/settings-modal";
 import { SemanticSearchModal } from "@/components/dashboard/semantic-search-modal";
 import { KbAnalyticsModal } from "@/components/dashboard/kb-analytics-modal";
+import { OnboardingModal } from "@/components/dashboard/onboarding-modal";
 import {
   DocumentItem,
   KnowledgeBaseItem,
@@ -36,6 +37,8 @@ export default function DashboardPage() {
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
   const [isSearchPlaygroundOpen, setIsSearchPlaygroundOpen] = React.useState(false);
   const [isAnalyticsOpen, setIsAnalyticsOpen] = React.useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = React.useState(false);
+  const [promptForInput, setPromptForInput] = React.useState<string | undefined>(undefined);
 
   // RAG Engine Settings
   const [ragSettings, setRagSettings] = React.useState<RagSettings>({
@@ -64,8 +67,13 @@ export default function DashboardPage() {
             ...parsed,
           }));
         }
+
+        const isDismissed = localStorage.getItem("enterprise_rag_onboarding_dismissed");
+        if (!isDismissed) {
+          setIsOnboardingOpen(true);
+        }
       } catch (e) {
-        console.warn("Failed to load BYOK settings from localStorage:", e);
+        console.warn("Failed to load settings or onboarding preference:", e);
       }
     }
   }, []);
@@ -261,12 +269,14 @@ export default function DashboardPage() {
           activeSessionId={activeSessionId}
           ragSettings={ragSettings}
           documents={documents}
+          initialPrompt={promptForInput}
           onSelectCitation={handleSelectCitation}
           onOpenUpload={() => setIsUploadModalOpen(true)}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onNewChat={handleCreateNewSession}
           onOpenSearchPlayground={() => setIsSearchPlaygroundOpen(true)}
           onOpenAnalytics={() => setIsAnalyticsOpen(true)}
+          onOpenOnboarding={() => setIsOnboardingOpen(true)}
         />
       </main>
 
@@ -337,6 +347,16 @@ export default function DashboardPage() {
           null
         }
         documents={documents}
+      />
+
+      {/* 10. Interactive Public Onboarding Modal */}
+      <OnboardingModal
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onSelectSamplePrompt={(samplePrompt) => {
+          setPromptForInput(samplePrompt);
+        }}
       />
     </div>
   );

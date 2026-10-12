@@ -30,6 +30,7 @@ import {
   Share2,
   Shield,
   Zap,
+  Search,
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -82,6 +83,7 @@ export function Sidebar({
   const [editingSessionId, setEditingSessionId] = React.useState<string | null>(null);
   const [editingSessionTitle, setEditingSessionTitle] = React.useState<string>("");
   const [showUserMenu, setShowUserMenu] = React.useState(false);
+  const [docSearchQuery, setDocSearchQuery] = React.useState("");
   const { user, loginDemo, logout } = useAuth();
   const { isDark, setTheme } = useTheme();
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -108,6 +110,13 @@ export function Sidebar({
     100,
     Math.round((documents.length / planLimits.maxDocs) * 100)
   );
+
+  const filteredDocuments = React.useMemo(() => {
+    if (!docSearchQuery.trim()) return documents;
+    return documents.filter((doc) =>
+      doc.title.toLowerCase().includes(docSearchQuery.toLowerCase())
+    );
+  }, [documents, docSearchQuery]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -350,6 +359,19 @@ export function Sidebar({
               </div>
             )}
 
+            {!isCollapsed && documents.length > 0 && (
+              <div className="relative mb-2 px-1">
+                <Search className="absolute left-3 top-2 h-3 w-3 text-zinc-400" />
+                <input
+                  type="text"
+                  placeholder="Filter judul dokumen..."
+                  value={docSearchQuery}
+                  onChange={(e) => setDocSearchQuery(e.target.value)}
+                  className="w-full rounded-md border border-zinc-200 bg-white py-1 pl-7 pr-2 text-[11px] text-zinc-800 placeholder-zinc-400 focus:border-emerald-500 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-200"
+                />
+              </div>
+            )}
+
             {isLoading ? (
               <div className="space-y-2">
                 <Skeleton className="h-12 w-full" />
@@ -364,9 +386,15 @@ export function Sidebar({
                   <p className="text-[10px] text-zinc-400">Unggah PDF untuk memulai pencarian RAG</p>
                 </div>
               )
+            ) : filteredDocuments.length === 0 ? (
+              !isCollapsed && (
+                <div className="py-4 text-center text-xs text-zinc-400">
+                  Tidak ditemukan dokumen yang cocok dengan "{docSearchQuery}".
+                </div>
+              )
             ) : (
               <div className="space-y-1.5">
-                {documents.map((doc) => {
+                {filteredDocuments.map((doc) => {
                   const badgeVariant =
                     doc.status === "INDEXED"
                       ? "ready"
@@ -380,6 +408,11 @@ export function Sidebar({
                       : doc.status === "PROCESSING"
                       ? "Indexing"
                       : "Failed";
+
+                  const fileExt =
+                    doc.title.split(".").pop()?.toUpperCase() ||
+                    doc.fileType.toUpperCase() ||
+                    "DOC";
 
                   return (
                     <div
@@ -397,20 +430,25 @@ export function Sidebar({
 
                       {!isCollapsed && (
                         <div className="min-w-0 flex-1">
-                          <button
-                            type="button"
-                            onClick={() => onInspectDocument(doc)}
-                            className="w-full text-left truncate text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:text-emerald-600 dark:hover:text-emerald-400 cursor-pointer"
-                            title={doc.title}
-                          >
-                            {doc.title}
-                          </button>
+                          <div className="flex items-center gap-1.5">
+                            <span className="rounded bg-zinc-100 px-1 py-0.2 text-[9px] font-mono font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 shrink-0">
+                              {fileExt}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => onInspectDocument(doc)}
+                              className="w-full text-left truncate text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:text-emerald-600 dark:hover:text-emerald-400 cursor-pointer"
+                              title={doc.title}
+                            >
+                              {doc.title}
+                            </button>
+                          </div>
                           <div className="mt-1 flex items-center justify-between">
                             <span className="text-[10px] text-zinc-400">
                               {formatBytes(doc.fileSize)} • {doc.chunkCount} chunks
                             </span>
                             <div className="flex items-center gap-1.5">
-                              <Badge variant={badgeVariant} className="text-[10px] px-1.5 py-0">
+                              <Badge variant={badgeVariant} className="text-[9px] px-1 py-0">
                                 {badgeText}
                               </Badge>
                               <button
@@ -419,7 +457,7 @@ export function Sidebar({
                                   e.stopPropagation();
                                   onDeleteDocument(doc.id);
                                 }}
-                                className="text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 opacity-0 group-hover:opacity-100 transition"
+                                className="text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 opacity-0 group-hover:opacity-100 transition cursor-pointer"
                                 title="Hapus dokumen"
                               >
                                 <Trash2 className="h-3 w-3" />
