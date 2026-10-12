@@ -118,6 +118,13 @@ export default function HomePage() {
               <span>pgvector HNSW Operator Ready</span>
             </div>
 
+            <Link
+              href="/docs"
+              className="text-xs text-zinc-400 hover:text-emerald-400 transition font-medium mr-1"
+            >
+              Dokumentasi API
+            </Link>
+
             {user ? (
               <div className="flex items-center gap-2">
                 <span className="hidden md:inline text-xs text-zinc-400 font-medium">
@@ -439,6 +446,10 @@ export default function HomePage() {
         <div className="mx-auto max-w-7xl px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p>© 2026 Cortex RAG Platform. Production-Ready Portfolio Architecture.</p>
           <div className="flex items-center gap-4 text-zinc-400">
+            <Link href="/docs" className="hover:text-emerald-400 transition">
+              Dokumentasi API
+            </Link>
+            <span>•</span>
             <Link href="/dashboard" className="hover:text-emerald-400 transition">
               Workspace
             </Link>
