@@ -7,6 +7,7 @@ import { X, FileText, Check, Copy, Sparkles, BookOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useLanguage } from "@/lib/i18n/context";
 
 interface CitationDrawerProps {
   citation: CitationItem | null;
@@ -15,6 +16,7 @@ interface CitationDrawerProps {
 }
 
 export function CitationDrawer({ citation, isOpen, onClose }: CitationDrawerProps) {
+  const { t } = useLanguage();
   const [copied, setCopied] = React.useState(false);
 
   React.useEffect(() => {
@@ -31,7 +33,7 @@ export function CitationDrawer({ citation, isOpen, onClose }: CitationDrawerProp
     if (!citation) return;
     navigator.clipboard.writeText(citation.snippet);
     setCopied(true);
-    toast.success("Kutipan teks disalin ke papan klip!");
+    toast.success(t.common.copied);
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -66,16 +68,16 @@ export function CitationDrawer({ citation, isOpen, onClose }: CitationDrawerProp
                   </span>
                   <div>
                     <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                      Sumber Verifikasi Referensi
+                      {t.modals.citationDrawer.title}
                     </h3>
-                    <p className="text-xs text-zinc-500">Kutipan semantik terindeks</p>
+                    <p className="text-xs text-zinc-500">Indexed semantic grounding reference</p>
                   </div>
                 </div>
                 <Button
                   variant="ghost"
                   size="iconSm"
                   onClick={onClose}
-                  className="rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                  className="rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer"
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -94,14 +96,14 @@ export function CitationDrawer({ citation, isOpen, onClose }: CitationDrawerProp
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <Badge variant="secondary" className="text-[11px]">
                         <BookOpen className="mr-1 h-3 w-3" />
-                        {citation.pageNumber ? `Halaman ${citation.pageNumber}` : "Halaman N/A"}
+                        {citation.pageNumber ? `Page ${citation.pageNumber}` : "Page N/A"}
                       </Badge>
                       <Badge
                         variant="ready"
                         className="text-[11px]"
                       >
                         <Sparkles className="mr-1 h-3 w-3" />
-                        Kesesuaian {citation.similarity}%
+                        Match {citation.similarity}%
                       </Badge>
                       {citation.matchType && (
                         <span
@@ -141,21 +143,21 @@ export function CitationDrawer({ citation, isOpen, onClose }: CitationDrawerProp
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium tracking-wide uppercase text-zinc-500">
-                    Kutipan Paragraf Asli
+                    {t.modals.citationDrawer.content}
                   </span>
                   <button
                     onClick={handleCopy}
-                    className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors"
+                    className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors cursor-pointer"
                   >
                     {copied ? (
                       <>
                         <Check className="h-3 w-3 text-emerald-500" />
-                        <span className="text-emerald-500">Tersalin</span>
+                        <span className="text-emerald-500">{t.common.copied}</span>
                       </>
                     ) : (
                       <>
                         <Copy className="h-3 w-3" />
-                        <span>Salin Teks</span>
+                        <span>{t.common.copy}</span>
                       </>
                     )}
                   </button>
@@ -172,8 +174,7 @@ export function CitationDrawer({ citation, isOpen, onClose }: CitationDrawerProp
               <div className="rounded-lg border border-dashed border-zinc-200 p-3 text-xs text-zinc-500 dark:border-zinc-800">
                 <p>
                   <strong className="text-zinc-700 dark:text-zinc-300">Strict Grounding:</strong>{" "}
-                  Paragraf ini ditarik langsung dari database vektor berdasarkan kemiripan kosinus.
-                  Model AI hanya diperbolehkan merumuskan jawaban dari fakta yang tertera di sini.
+                  This passage was directly retrieved from the vector store based on cosine similarity and Reciprocal Rank Fusion. The model is constrained to formulate answers based strictly on cited facts.
                 </p>
               </div>
             </div>
@@ -182,10 +183,10 @@ export function CitationDrawer({ citation, isOpen, onClose }: CitationDrawerProp
             <div className="border-t border-zinc-100 pt-4 dark:border-zinc-800/80">
               <Button
                 variant="outline"
-                className="w-full text-xs"
+                className="w-full text-xs cursor-pointer"
                 onClick={onClose}
               >
-                Tutup Panel Referensi
+                {t.modals.citationDrawer.close}
               </Button>
             </div>
           </motion.div>

@@ -24,11 +24,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useTheme } from "@/components/providers/theme-provider";
+import { useLanguage } from "@/lib/i18n/context";
+import { LanguageSwitcher } from "@/components/ui/language-switcher";
 
 export default function HomePage() {
   const { user } = useAuth();
   const { isDark, toggleTheme } = useTheme();
-  const [testQuery, setTestQuery] = React.useState("Kebijakan retensi dan enkripsi data SEC-POL-04");
+  const { t } = useLanguage();
+
+  const [testQuery, setTestQuery] = React.useState(
+    "Kebijakan retensi dan enkripsi data SEC-POL-04"
+  );
   const [testResults, setTestResults] = React.useState<any[] | null>(null);
   const [isSearching, setIsSearching] = React.useState(false);
   const [searchLatency, setSearchLatency] = React.useState<number | null>(null);
@@ -108,10 +114,10 @@ export default function HomePage() {
             </div>
             <div>
               <span className="text-sm font-bold tracking-tight text-zinc-50">
-                Cortex RAG
+                {t.common.brand}
               </span>
               <span className="ml-2 rounded-full border border-emerald-500/30 bg-emerald-950/60 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
-                v2.0 Enterprise
+                v2.0 {t.common.enterpriseBadge}
               </span>
             </div>
           </div>
@@ -126,16 +132,24 @@ export default function HomePage() {
               href="/docs"
               className="text-xs text-zinc-400 hover:text-emerald-400 transition font-medium mr-1"
             >
-              Dokumentasi API
+              {t.nav.docs}
             </Link>
 
+            {/* Language Switcher */}
+            <LanguageSwitcher variant="pill" />
+
+            {/* Theme Toggle */}
             <button
               type="button"
               onClick={toggleTheme}
               className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/80 text-zinc-300 hover:text-white transition cursor-pointer"
-              title={isDark ? "Ganti ke Tema Terang (Light)" : "Ganti ke Tema Gelap (Dark)"}
+              title={isDark ? t.common.lightTheme : t.common.darkTheme}
             >
-              {isDark ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-zinc-300" />}
+              {isDark ? (
+                <Sun className="h-4 w-4 text-amber-400" />
+              ) : (
+                <Moon className="h-4 w-4 text-zinc-300" />
+              )}
             </button>
 
             {user ? (
@@ -149,7 +163,7 @@ export default function HomePage() {
                     size="sm"
                     className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-500 shadow-md shadow-emerald-600/20"
                   >
-                    <span>Ke Workspace</span>
+                    <span>{t.nav.dashboard}</span>
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Button>
                 </Link>
@@ -162,7 +176,7 @@ export default function HomePage() {
                     size="sm"
                     className="text-xs text-zinc-300 hover:text-white"
                   >
-                    Masuk
+                    {t.nav.login}
                   </Button>
                 </Link>
                 <Link href="/dashboard">
@@ -171,7 +185,7 @@ export default function HomePage() {
                     size="sm"
                     className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-500 shadow-md shadow-emerald-600/20"
                   >
-                    <span>Buka Workspace</span>
+                    <span>{t.landing.startSandbox}</span>
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Button>
                 </Link>
@@ -189,16 +203,14 @@ export default function HomePage() {
         </div>
 
         <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl text-zinc-50 leading-[1.15]">
-          Enterprise Knowledge Base &{" "}
+          {t.landing.heroTitle1}{" "}
           <span className="bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
-            Semantic Vector Engine
+            {t.landing.heroTitle2}
           </span>
         </h1>
 
         <p className="mx-auto mt-6 max-w-2xl text-base sm:text-lg leading-relaxed text-zinc-400">
-          Infrastruktur RAG modern untuk enterprise dengan presisi tinggi. Menggabungkan pencarian
-          vektor kosinus berdensitas tinggi dengan lexical BM25, re-ranking dua tahap, dan auditor
-          kepatuhan anti-halusinasi dengan sitasi terverifikasi.
+          {t.landing.heroSubtitle}
         </p>
 
         {/* CTA Buttons */}
@@ -208,7 +220,7 @@ export default function HomePage() {
               size="lg"
               className="h-12 gap-2 bg-emerald-600 px-7 text-sm font-semibold text-white hover:bg-emerald-500 shadow-lg shadow-emerald-600/30 transition hover:scale-102"
             >
-              <span>Mulai Jelajahi Workspace</span>
+              <span>{t.landing.startSandbox}</span>
               <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
@@ -220,7 +232,7 @@ export default function HomePage() {
             className="h-12 gap-2 border-zinc-800 bg-zinc-900/60 px-6 text-sm text-zinc-200 hover:bg-zinc-800 hover:text-white"
           >
             <Search className="h-4 w-4 text-emerald-400" />
-            <span>Uji Coba Hybrid Retrieval</span>
+            <span>{t.landing.searchButton}</span>
           </Button>
         </div>
 
@@ -252,12 +264,12 @@ export default function HomePage() {
             <div className="flex items-center gap-2">
               <Zap className="h-4 w-4 text-emerald-400" />
               <h3 className="text-sm font-bold text-zinc-100">
-                Live Hybrid Retrieval Sandbox
+                {t.landing.quickSearchTitle}
               </h3>
             </div>
             {searchLatency !== null && (
               <Badge variant="ready" className="text-[10px]">
-                Latency: {searchLatency} ms
+                {t.landing.searchLatency}: {searchLatency} ms
               </Badge>
             )}
           </div>
@@ -269,7 +281,7 @@ export default function HomePage() {
                 value={testQuery}
                 onChange={(e) => setTestQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && runQuickSearch(testQuery)}
-                placeholder="Ketik pertanyaan atau kode teknis (misal: SEC-POL-04, SLA 99.99%)..."
+                placeholder={t.landing.searchPlaceholder}
                 className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-xs text-zinc-100 placeholder-zinc-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               />
             </div>
@@ -281,13 +293,13 @@ export default function HomePage() {
               onClick={() => runQuickSearch(testQuery)}
               className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-4"
             >
-              {isSearching ? "Mencari..." : "Jalankan Query"}
+              {isSearching ? t.landing.searching : t.landing.searchButton}
             </Button>
           </div>
 
           {/* Quick Query Starter Pills */}
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-[11px] text-zinc-500">Contoh Query:</span>
+            <span className="text-[11px] text-zinc-500">Query:</span>
             {[
               "Kebijakan retensi dan enkripsi data SEC-POL-04",
               "Berapa target RPO dan RTO disaster recovery?",
@@ -311,7 +323,9 @@ export default function HomePage() {
           {testResults && (
             <div className="mt-5 space-y-3 pt-4 border-t border-zinc-800/80 animate-in fade-in duration-200">
               <div className="flex items-center justify-between text-xs text-zinc-400 font-semibold">
-                <span>Kandidat Potongan Teks Terindeks ({testResults.length})</span>
+                <span>
+                  {t.landing.retrievedPassages} ({testResults.length})
+                </span>
                 <span className="text-[11px] font-mono text-emerald-400">
                   Two-Stage Cross-Encoder Ranked
                 </span>
@@ -328,10 +342,11 @@ export default function HomePage() {
                     </span>
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary" className="text-[10px]">
-                        Halaman {chunk.pageNumber || 1}
+                        Page {chunk.pageNumber || 1}
                       </Badge>
                       <Badge variant="ready" className="text-[10px]">
-                        Kemiripan: {Math.round((chunk.similarity || 0.85) * 100)}%
+                        {t.landing.matchScore}:{" "}
+                        {Math.round((chunk.similarity || 0.85) * 100)}%
                       </Badge>
                     </div>
                   </div>
@@ -345,17 +360,53 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Metrics Row */}
+      <section className="relative z-10 mx-auto max-w-6xl px-6 py-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5 text-center">
+            <h4 className="text-lg font-bold text-emerald-400">
+              {t.landing.metrics.sla}
+            </h4>
+            <p className="mt-1 text-xs text-zinc-400">{t.landing.metrics.slaDesc}</p>
+          </div>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5 text-center">
+            <h4 className="text-lg font-bold text-emerald-400">
+              {t.landing.metrics.latency}
+            </h4>
+            <p className="mt-1 text-xs text-zinc-400">
+              {t.landing.metrics.latencyDesc}
+            </p>
+          </div>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5 text-center">
+            <h4 className="text-lg font-bold text-emerald-400">
+              {t.landing.metrics.vector}
+            </h4>
+            <p className="mt-1 text-xs text-zinc-400">
+              {t.landing.metrics.vectorDesc}
+            </p>
+          </div>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5 text-center">
+            <h4 className="text-lg font-bold text-emerald-400">
+              {t.landing.metrics.security}
+            </h4>
+            <p className="mt-1 text-xs text-zinc-400">
+              {t.landing.metrics.securityDesc}
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* 5-Step Architecture Pipeline */}
-      <section className="relative z-10 mx-auto max-w-6xl px-6 py-20">
+      <section className="relative z-10 mx-auto max-w-6xl px-6 py-16">
         <div className="text-center mb-12">
           <Badge variant="secondary" className="mb-2">
             End-to-End Pipeline
           </Badge>
           <h2 className="text-3xl font-bold tracking-tight text-zinc-50">
-            Arsitektur Pengolahan Data & Mesin RAG
+            {t.landing.archTitle}
           </h2>
           <p className="mt-2 text-sm text-zinc-400 max-w-xl mx-auto">
-            Proses ingestion deterministik dan retrieval berstandar enterprise tanpa halusinasi.
+            {t.landing.archSubtitle}
           </p>
         </div>
 
@@ -366,7 +417,7 @@ export default function HomePage() {
             </div>
             <h4 className="text-xs font-bold text-zinc-100">Recursive Chunking</h4>
             <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-400">
-              500-700 token dengan 100 overlap menggunakan hierarki pemisah teks cerdas (`\n\n`, `\n`).
+              500-700 tokens with 100 overlap using intelligent text splitters (`\n\n`, `\n`).
             </p>
           </div>
 
@@ -376,7 +427,7 @@ export default function HomePage() {
             </div>
             <h4 className="text-xs font-bold text-zinc-100">Vector Embeddings</h4>
             <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-400">
-              1536-dim OpenAI `text-embedding-3-small` / Gemini dengan L2 unit norm normalizer.
+              1536-dim OpenAI `text-embedding-3-small` / Gemini with L2 unit norm normalization.
             </p>
           </div>
 
@@ -386,7 +437,7 @@ export default function HomePage() {
             </div>
             <h4 className="text-xs font-bold text-zinc-100">Hybrid Search (RRF)</h4>
             <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-400">
-              Menggabungkan dense cosine & BM25 sparse lexical ($k=60$) untuk akurasi kode teknis.
+              Merges dense cosine & BM25 sparse lexical ($k=60$) for exact code & semantic recall.
             </p>
           </div>
 
@@ -396,7 +447,7 @@ export default function HomePage() {
             </div>
             <h4 className="text-xs font-bold text-zinc-100">Two-Stage Re-Ranking</h4>
             <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-400">
-              Filter kandidat awal Top-15 dengan evaluasi interrogative entity congruence.
+              Cross-encoder filters top candidates with phrase boost and entity congruence.
             </p>
           </div>
 
@@ -406,7 +457,7 @@ export default function HomePage() {
             </div>
             <h4 className="text-xs font-bold text-zinc-100">Groundedness Auditor</h4>
             <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-400">
-              Verifikasi kalimat per kalimat terhadap kutipan asli untuk menjamin zero hallucination.
+              Sentence-by-sentence factuality check against cited chunks to guarantee zero hallucinations.
             </p>
           </div>
         </div>
@@ -416,37 +467,55 @@ export default function HomePage() {
       <section className="relative z-10 mx-auto max-w-4xl px-6 pb-20">
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 overflow-hidden">
           <h3 className="text-base font-bold text-zinc-100 mb-4">
-            Komparasi: Naive Vector Search vs. Cortex Enterprise RAG
+            Comparison: Naive Vector Search vs. Cortex Enterprise RAG
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs text-zinc-300">
               <thead className="border-b border-zinc-800 text-zinc-400 uppercase text-[10px] tracking-wider">
                 <tr>
-                  <th className="py-2.5 px-3">Fitur Arsitektur</th>
+                  <th className="py-2.5 px-3">Architecture Feature</th>
                   <th className="py-2.5 px-3 text-rose-400">Naive Vector Search</th>
                   <th className="py-2.5 px-3 text-emerald-400">Cortex Enterprise RAG</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-800/60 font-sans">
                 <tr>
-                  <td className="py-3 px-3 font-semibold text-zinc-200">Pencarian Kata Kunci Persis</td>
-                  <td className="py-3 px-3 text-zinc-400">Sering meleset pada kode (e.g. SEC-POL-04)</td>
-                  <td className="py-3 px-3 text-emerald-400 font-medium">BM25 + Dense RRF (100% tepat)</td>
+                  <td className="py-3 px-3 font-semibold text-zinc-200">
+                    Exact Code & Keyword Search
+                  </td>
+                  <td className="py-3 px-3 text-zinc-400">
+                    Frequently misses codes (e.g. SEC-POL-04)
+                  </td>
+                  <td className="py-3 px-3 text-emerald-400 font-medium">
+                    BM25 + Dense RRF (100% exact match)
+                  </td>
                 </tr>
                 <tr>
-                  <td className="py-3 px-3 font-semibold text-zinc-200">Re-Ranking Kandidat</td>
-                  <td className="py-3 px-3 text-zinc-400">Hanya cosine distance mentah</td>
-                  <td className="py-3 px-3 text-emerald-400 font-medium">Two-Stage Cross-Encoder Top-15</td>
+                  <td className="py-3 px-3 font-semibold text-zinc-200">
+                    Candidate Re-Ranking
+                  </td>
+                  <td className="py-3 px-3 text-zinc-400">Raw cosine distance only</td>
+                  <td className="py-3 px-3 text-emerald-400 font-medium">
+                    Two-Stage Cross-Encoder Top-15
+                  </td>
                 </tr>
                 <tr>
-                  <td className="py-3 px-3 font-semibold text-zinc-200">Verifikasi Halusinasi</td>
-                  <td className="py-3 px-3 text-zinc-400">Tidak ada pengawasan fakta</td>
-                  <td className="py-3 px-3 text-emerald-400 font-medium">Auditor kalimat (0-100% Score)</td>
+                  <td className="py-3 px-3 font-semibold text-zinc-200">
+                    Hallucination Verification
+                  </td>
+                  <td className="py-3 px-3 text-zinc-400">No factuality verification</td>
+                  <td className="py-3 px-3 text-emerald-400 font-medium">
+                    Sentence auditor (0-100% Groundedness Score)
+                  </td>
                 </tr>
                 <tr>
-                  <td className="py-3 px-3 font-semibold text-zinc-200">Verifikasi Sitasi</td>
-                  <td className="py-3 px-3 text-zinc-400">Teks statis tanpa link sumber</td>
-                  <td className="py-3 px-3 text-emerald-400 font-medium">Slide-over drawer dengan kutipan asli</td>
+                  <td className="py-3 px-3 font-semibold text-zinc-200">
+                    Inline Citation Linking
+                  </td>
+                  <td className="py-3 px-3 text-zinc-400">Static text without links</td>
+                  <td className="py-3 px-3 text-emerald-400 font-medium">
+                    Slide-over inspector with exact highlighted source
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -457,14 +526,14 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="relative z-10 border-t border-zinc-800 bg-zinc-950 py-8 text-center text-xs text-zinc-500">
         <div className="mx-auto max-w-7xl px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© 2026 Cortex RAG Platform. Production-Ready Portfolio Architecture.</p>
+          <p>© 2026 Cortex RAG Platform. Production-Ready Enterprise Architecture.</p>
           <div className="flex items-center gap-4 text-zinc-400">
             <Link href="/docs" className="hover:text-emerald-400 transition">
-              Dokumentasi API
+              {t.nav.docs}
             </Link>
             <span>•</span>
             <Link href="/dashboard" className="hover:text-emerald-400 transition">
-              Workspace
+              {t.nav.dashboard}
             </Link>
             <span>•</span>
             <span className="font-mono text-[11px]">Next.js 16 • pgvector • Vercel AI SDK</span>

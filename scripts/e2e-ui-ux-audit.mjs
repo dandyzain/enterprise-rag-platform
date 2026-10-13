@@ -367,8 +367,8 @@ async function runE2EandUIUXTests() {
       "UI Aesthetic: Zinc-Emerald Monochromatic Design Tokens Active"
     );
     assert(
-      dashHtml.includes("Sesi Chat") && dashHtml.includes("Cortex"),
-      "UX Ergonomics: Multi-Tab Workspace (Dokumen & Sesi Chat) Active"
+      (dashHtml.includes("Sesi Chat") || dashHtml.includes("Chat Sessions")) && dashHtml.includes("Cortex"),
+      "UX Ergonomics: Multi-Tab Workspace (Documents & Chat Sessions) Active"
     );
     assert(
       dashHtml.includes("Strict Grounding") || dashHtml.includes("Grounding"),

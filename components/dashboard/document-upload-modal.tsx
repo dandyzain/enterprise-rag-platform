@@ -5,6 +5,7 @@ import { X, UploadCloud, FileText, CheckCircle2, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import { formatBytes } from "@/lib/utils";
 import { toast } from "sonner";
+import { useLanguage } from "@/lib/i18n/context";
 
 interface DocumentUploadModalProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ export function DocumentUploadModal({
   knowledgeBaseId,
   onUploadSuccess,
 }: DocumentUploadModalProps) {
+  const { t } = useLanguage();
   const [dragActive, setDragActive] = React.useState(false);
   const [selectedFiles, setSelectedFiles] = React.useState<File[]>([]);
   const [isProcessing, setIsProcessing] = React.useState(false);
@@ -63,7 +65,7 @@ export function DocumentUploadModal({
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
         setCurrentFileIndex(i + 1);
-        setPipelineStep(`Mengindeks [${i + 1}/${selectedFiles.length}]: ${file.name}...`);
+        setPipelineStep(`Indexing [${i + 1}/${selectedFiles.length}]: ${file.name}...`);
 
         const formData = new FormData();
         formData.append("file", file);
@@ -79,18 +81,18 @@ export function DocumentUploadModal({
           successCount++;
           totalChunks += json.data?.totalChunks || 0;
         } else {
-          console.warn(`Gagal mengindeks ${file.name}:`, json.error);
+          console.warn(`Failed indexing ${file.name}:`, json.error);
         }
       }
 
       toast.success(
-        `Batch ingestion selesai: ${successCount} dari ${selectedFiles.length} dokumen berhasil diindeks (${totalChunks} chunks).`
+        `Batch ingestion finished: ${successCount} of ${selectedFiles.length} documents indexed (${totalChunks} chunks).`
       );
       onUploadSuccess();
       onClose();
     } catch (err: unknown) {
       const error = err as Error;
-      toast.error(error.message || "Gagal mengunggah berkas.");
+      toast.error(error.message || "Failed to upload files.");
     } finally {
       setIsProcessing(false);
       setPipelineStep(null);
@@ -102,22 +104,22 @@ export function DocumentUploadModal({
   const handleSeed = async () => {
     try {
       setIsProcessing(true);
-      setPipelineStep("Mengindeks paket dokumen enterprise (SOP Cloud, ISO27001, DevOps)...");
+      setPipelineStep("Indexing enterprise sample package (Cloud SOP, ISO27001, CI/CD)...");
 
       const res = await fetch(`/api/seed?kbId=${encodeURIComponent(knowledgeBaseId)}`, {
         method: "POST",
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json.error || "Gagal memuat dokumen contoh.");
+        throw new Error(json.error || "Failed to load sample documents.");
       }
 
-      toast.success("Berhasil mengindeks 3 dokumen contoh enterprise!");
+      toast.success("Successfully indexed 3 enterprise sample documents!");
       onUploadSuccess();
       onClose();
     } catch (err: unknown) {
       const error = err as Error;
-      toast.error(error.message || "Gagal memuat dokumen contoh.");
+      toast.error(error.message || "Failed to seed sample documents.");
     } finally {
       setIsProcessing(false);
       setPipelineStep(null);
@@ -131,16 +133,16 @@ export function DocumentUploadModal({
         <div className="flex items-center justify-between border-b border-zinc-100 pb-4 dark:border-zinc-800">
           <div>
             <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-50">
-              Unggah Dokumen ke Knowledge Base
+              {t.modals.upload.title}
             </h3>
             <p className="text-xs text-zinc-500">
-              Mendukung multi-file upload (PDF, TXT, MD, JSON, CSV)
+              {t.modals.upload.desc}
             </p>
           </div>
           <button
             onClick={onClose}
             disabled={isProcessing}
-            className="rounded-full p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+            className="rounded-full p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer"
           >
             <X className="h-4 w-4" />
           </button>
@@ -178,10 +180,10 @@ export function DocumentUploadModal({
               <UploadCloud className="h-5 w-5" />
             </div>
             <p className="mt-2 text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-              Tarik & Letakkan beberapa berkas di sini, atau klik untuk memilih
+              {t.documents.dropzoneText}
             </p>
             <p className="mt-1 text-[11px] text-zinc-500">
-              Mendukung PDF multi-halaman, TXT, MD, JSON, CSV (Maksimal 25MB per file)
+              {t.documents.dropzoneSubtext}
             </p>
           </div>
 
@@ -189,14 +191,14 @@ export function DocumentUploadModal({
           {selectedFiles.length > 0 && (
             <div className="max-h-40 overflow-y-auto space-y-1.5 rounded-xl border border-zinc-200 bg-zinc-50/40 p-2.5 dark:border-zinc-800 dark:bg-zinc-900/30">
               <div className="flex items-center justify-between px-1 text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">
-                <span>Antrean Berkas ({selectedFiles.length})</span>
+                <span>Selected Files ({selectedFiles.length})</span>
                 {!isProcessing && (
                   <button
                     type="button"
                     onClick={() => setSelectedFiles([])}
-                    className="text-zinc-400 hover:text-rose-600 transition"
+                    className="text-zinc-400 hover:text-rose-600 transition cursor-pointer"
                   >
-                    Kosongkan
+                    Clear All
                   </button>
                 )}
               </div>
@@ -220,7 +222,7 @@ export function DocumentUploadModal({
                     <button
                       type="button"
                       onClick={() => handleRemoveFile(idx)}
-                      className="ml-2 text-zinc-400 hover:text-rose-500"
+                      className="ml-2 text-zinc-400 hover:text-rose-500 cursor-pointer"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -243,10 +245,10 @@ export function DocumentUploadModal({
             <div className="rounded-xl border border-zinc-200 bg-zinc-50/60 p-3.5 text-xs dark:border-zinc-800 dark:bg-zinc-900/40 flex items-center justify-between">
               <div>
                 <p className="font-semibold text-zinc-800 dark:text-zinc-200">
-                  Paket Contoh Dokumen Enterprise
+                  Enterprise Documentation Samples
                 </p>
                 <p className="text-[11px] text-zinc-500">
-                  SOP Cloud 2026, ISO-27001 Keamanan Data, Panduan CI/CD DevOps
+                  SOP Cloud 2026, ISO-27001 Data Security, CI/CD DevOps Pipeline
                 </p>
               </div>
               <Button
@@ -255,9 +257,9 @@ export function DocumentUploadModal({
                 size="sm"
                 onClick={handleSeed}
                 disabled={isProcessing}
-                className="h-8 text-[11px] shrink-0"
+                className="h-8 text-[11px] shrink-0 cursor-pointer"
               >
-                Muat Contoh
+                {t.sidebar.seedButton}
               </Button>
             </div>
           )}
@@ -270,26 +272,27 @@ export function DocumentUploadModal({
             size="sm"
             onClick={onClose}
             disabled={isProcessing}
+            className="cursor-pointer"
           >
-            Batal
+            {t.common.cancel}
           </Button>
           <Button
             variant="default"
             size="sm"
             onClick={handleUploadBatch}
             disabled={selectedFiles.length === 0 || isProcessing}
-            className="gap-1.5"
+            className="gap-1.5 cursor-pointer"
           >
             {isProcessing ? (
               <>
                 <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                <span>Memproses Batch...</span>
+                <span>Processing...</span>
               </>
             ) : (
               <>
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 <span>
-                  Indeks {selectedFiles.length > 0 ? `${selectedFiles.length} Berkas` : "Dokumen"}
+                  Index {selectedFiles.length > 0 ? `${selectedFiles.length} Files` : "Document"}
                 </span>
               </>
             )}
@@ -299,4 +302,3 @@ export function DocumentUploadModal({
     </div>
   );
 }
-

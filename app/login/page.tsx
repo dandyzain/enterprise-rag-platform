@@ -20,12 +20,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useTheme } from "@/components/providers/theme-provider";
+import { useLanguage } from "@/lib/i18n/context";
+import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { UserRole } from "@/lib/auth/types";
 
 export default function LoginPage() {
   const router = useRouter();
   const { user, login, register, loginDemo, isLoading } = useAuth();
   const { isDark, toggleTheme } = useTheme();
+  const { t } = useLanguage();
 
   const [mode, setMode] = React.useState<"login" | "register" | "demo">("demo");
   const [email, setEmail] = React.useState("");
@@ -66,15 +69,20 @@ export default function LoginPage() {
       {/* Background Subtle Gradient Glow */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_60%_at_50%_20%,rgba(16,185,129,0.12),rgba(255,255,255,0))] pointer-events-none" />
 
-      {/* Top right theme toggle */}
-      <div className="absolute top-4 right-4 z-20">
+      {/* Top right language switcher and theme toggle */}
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+        <LanguageSwitcher variant="pill" />
         <button
           type="button"
           onClick={toggleTheme}
           className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/80 text-zinc-300 hover:text-white transition cursor-pointer"
-          title={isDark ? "Ganti ke Tema Terang (Light)" : "Ganti ke Tema Gelap (Dark)"}
+          title={isDark ? t.common.lightTheme : t.common.darkTheme}
         >
-          {isDark ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-zinc-300" />}
+          {isDark ? (
+            <Sun className="h-4 w-4 text-amber-400" />
+          ) : (
+            <Moon className="h-4 w-4 text-zinc-300" />
+          )}
         </button>
       </div>
 
@@ -85,14 +93,14 @@ export default function LoginPage() {
             <Database className="h-5 w-5" />
           </div>
           <span className="text-xl font-bold tracking-tight text-zinc-50">
-            Cortex RAG
+            {t.common.brand}
           </span>
           <span className="rounded bg-emerald-950/80 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
-            Enterprise
+            {t.common.enterpriseBadge}
           </span>
         </Link>
         <p className="text-xs text-zinc-400">
-          Autentikasi Multi-Tenant & Keamanan Akses Vektor
+          {t.auth.subtitle}
         </p>
       </div>
 
@@ -109,7 +117,7 @@ export default function LoginPage() {
                 : "border-transparent text-zinc-400 hover:text-zinc-200"
             }`}
           >
-            Akses Demo Instan
+            {t.auth.demoTab}
           </button>
           <button
             type="button"
@@ -120,7 +128,7 @@ export default function LoginPage() {
                 : "border-transparent text-zinc-400 hover:text-zinc-200"
             }`}
           >
-            Masuk
+            {t.auth.loginTab}
           </button>
           <button
             type="button"
@@ -131,7 +139,7 @@ export default function LoginPage() {
                 : "border-transparent text-zinc-400 hover:text-zinc-200"
             }`}
           >
-            Daftar Akun
+            {t.auth.registerTab}
           </button>
         </div>
 
@@ -139,8 +147,7 @@ export default function LoginPage() {
         {mode === "demo" && (
           <div className="space-y-3">
             <p className="text-xs text-zinc-400 mb-4 leading-relaxed">
-              Pilih salah satu profil pra-konfigurasi untuk menguji sistem isolasi data multi-tenant
-              secara langsung tanpa perlu memasukkan password:
+              {t.auth.demoSubtitle}
             </p>
 
             {/* Profile 1: Admin */}
@@ -161,7 +168,9 @@ export default function LoginPage() {
                       ADMIN
                     </Badge>
                   </div>
-                  <p className="text-[11px] text-zinc-400">alex.admin@enterprise.corp • Enterprise Plan</p>
+                  <p className="text-[11px] text-zinc-400">
+                    alex.admin@enterprise.corp • {t.auth.roles.admin}
+                  </p>
                 </div>
               </div>
               <ArrowRight className="h-4 w-4 text-zinc-600 group-hover:text-emerald-400 transition" />
@@ -185,7 +194,9 @@ export default function LoginPage() {
                       MEMBER
                     </Badge>
                   </div>
-                  <p className="text-[11px] text-zinc-400">sarah.analyst@cortex.ai • Pro Plan</p>
+                  <p className="text-[11px] text-zinc-400">
+                    sarah.analyst@cortex.ai • {t.auth.roles.member}
+                  </p>
                 </div>
               </div>
               <ArrowRight className="h-4 w-4 text-zinc-600 group-hover:text-emerald-400 transition" />
@@ -209,7 +220,9 @@ export default function LoginPage() {
                       GUEST
                     </Badge>
                   </div>
-                  <p className="text-[11px] text-zinc-400">guest.public@demo.local • Free Tier</p>
+                  <p className="text-[11px] text-zinc-400">
+                    guest.public@demo.local • {t.auth.roles.guest}
+                  </p>
                 </div>
               </div>
               <ArrowRight className="h-4 w-4 text-zinc-600 group-hover:text-emerald-400 transition" />
@@ -221,14 +234,16 @@ export default function LoginPage() {
         {mode === "login" && (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="text-xs font-semibold text-zinc-300">Email Akun</label>
+              <label className="text-xs font-semibold text-zinc-300">
+                {t.auth.emailLabel}
+              </label>
               <div className="relative mt-1">
                 <Mail className="absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="nama@perusahaan.com"
+                  placeholder={t.auth.emailPlaceholder}
                   required
                   className="w-full rounded-xl border border-zinc-800 bg-zinc-950 pl-9 pr-3 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:border-emerald-500 focus:outline-none"
                 />
@@ -236,14 +251,16 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-zinc-300">Kata Sandi</label>
+              <label className="text-xs font-semibold text-zinc-300">
+                {t.auth.passwordLabel}
+              </label>
               <div className="relative mt-1">
                 <Lock className="absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder={t.auth.passwordPlaceholder}
                   required
                   className="w-full rounded-xl border border-zinc-800 bg-zinc-950 pl-9 pr-3 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:border-emerald-500 focus:outline-none"
                 />
@@ -255,9 +272,9 @@ export default function LoginPage() {
               variant="default"
               size="sm"
               disabled={isSubmitting}
-              className="w-full h-9 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs mt-2"
+              className="w-full h-9 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs mt-2 cursor-pointer"
             >
-              {isSubmitting ? "Memverifikasi..." : "Masuk ke Workspace"}
+              {isSubmitting ? t.auth.signingIn : t.auth.signInButton}
             </Button>
           </form>
         )}
@@ -266,14 +283,16 @@ export default function LoginPage() {
         {mode === "register" && (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="text-xs font-semibold text-zinc-300">Nama Lengkap</label>
+              <label className="text-xs font-semibold text-zinc-300">
+                {t.auth.nameLabel}
+              </label>
               <div className="relative mt-1">
                 <User className="absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Budi Santoso"
+                  placeholder={t.auth.namePlaceholder}
                   required
                   className="w-full rounded-xl border border-zinc-800 bg-zinc-950 pl-9 pr-3 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:border-emerald-500 focus:outline-none"
                 />
@@ -281,14 +300,16 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-zinc-300">Email Perusahaan</label>
+              <label className="text-xs font-semibold text-zinc-300">
+                {t.auth.emailLabel}
+              </label>
               <div className="relative mt-1">
                 <Mail className="absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="budi@perusahaan.com"
+                  placeholder={t.auth.emailPlaceholder}
                   required
                   className="w-full rounded-xl border border-zinc-800 bg-zinc-950 pl-9 pr-3 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:border-emerald-500 focus:outline-none"
                 />
@@ -296,14 +317,16 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-zinc-300">Kata Sandi Baru</label>
+              <label className="text-xs font-semibold text-zinc-300">
+                {t.auth.passwordLabel}
+              </label>
               <div className="relative mt-1">
                 <Lock className="absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Minimal 6 karakter"
+                  placeholder="••••••••"
                   required
                   minLength={6}
                   className="w-full rounded-xl border border-zinc-800 bg-zinc-950 pl-9 pr-3 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:border-emerald-500 focus:outline-none"
@@ -316,9 +339,9 @@ export default function LoginPage() {
               variant="default"
               size="sm"
               disabled={isSubmitting}
-              className="w-full h-9 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs mt-2"
+              className="w-full h-9 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs mt-2 cursor-pointer"
             >
-              {isSubmitting ? "Mendaftarkan..." : "Daftar Akun Baru"}
+              {isSubmitting ? t.auth.registering : t.auth.registerButton}
             </Button>
           </form>
         )}
@@ -329,7 +352,7 @@ export default function LoginPage() {
             href="/"
             className="text-[11px] text-zinc-400 hover:text-emerald-400 transition"
           >
-            ← Kembali ke Halaman Utama
+            ← {t.common.back}
           </Link>
         </div>
       </div>

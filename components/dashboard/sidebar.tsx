@@ -39,6 +39,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { useLanguage } from "@/lib/i18n/context";
+import { LanguageSwitcher } from "@/components/ui/language-switcher";
 
 interface SidebarProps {
   documents: DocumentItem[];
@@ -89,6 +91,7 @@ export function Sidebar({
   const [isSeeding, setIsSeeding] = React.useState(false);
   const { user, loginDemo, logout } = useAuth();
   const { isDark, setTheme } = useTheme();
+  const { t } = useLanguage();
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const handleSeedDemoDocs = async () => {
@@ -357,7 +360,7 @@ export function Sidebar({
                 : "border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
             }`}
           >
-            Dokumen ({documents.length})
+            {t.sidebar.docsTab} ({documents.length})
           </button>
           <button
             type="button"
@@ -368,7 +371,7 @@ export function Sidebar({
                 : "border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
             }`}
           >
-            Sesi Chat ({chatSessions.length})
+            {t.sidebar.chatsTab} ({chatSessions.length})
           </button>
         </div>
       )}
@@ -791,13 +794,18 @@ export function Sidebar({
               </button>
             </div>
 
+            <div className="mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between text-xs px-1">
+              <span className="text-[11px] text-zinc-500">{t.common.language}</span>
+              <LanguageSwitcher variant="pill" />
+            </div>
+
             <div className="mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between text-xs">
               <Link
                 href="/login"
                 onClick={() => setShowUserMenu(false)}
                 className="text-zinc-500 hover:text-emerald-600 dark:hover:text-emerald-400 text-[11px]"
               >
-                Halaman Login
+                {t.nav.login}
               </Link>
               <button
                 type="button"
@@ -805,10 +813,10 @@ export function Sidebar({
                   void logout();
                   setShowUserMenu(false);
                 }}
-                className="flex items-center gap-1 text-[11px] text-rose-600 hover:text-rose-700 dark:text-rose-400"
+                className="flex items-center gap-1 text-[11px] text-rose-600 hover:text-rose-700 dark:text-rose-400 cursor-pointer"
               >
                 <LogOut className="h-3 w-3" />
-                <span>Keluar</span>
+                <span>{t.sidebar.logout}</span>
               </button>
             </div>
           </div>

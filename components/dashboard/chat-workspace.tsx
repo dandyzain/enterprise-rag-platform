@@ -37,6 +37,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useTheme } from "@/components/providers/theme-provider";
+import { useLanguage } from "@/lib/i18n/context";
+import { LanguageSwitcher } from "@/components/ui/language-switcher";
 
 export interface MessageUI {
   id: string;
@@ -95,6 +97,7 @@ export function ChatWorkspace({
   initialPrompt,
 }: ChatWorkspaceProps) {
   const { isDark, toggleTheme } = useTheme();
+  const { t } = useLanguage();
   const [messages, setMessages] = React.useState<MessageUI[]>([]);
   const [input, setInput] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
@@ -568,19 +571,21 @@ export function ChatWorkspace({
             variant="ghost"
             size="iconSm"
             onClick={onOpenSettings}
-            className="h-8 w-8 text-zinc-600 dark:text-zinc-300"
-            title="Buka Pengaturan RAG"
+            className="h-8 w-8 text-zinc-600 dark:text-zinc-300 cursor-pointer"
+            title={t.chat.settings}
           >
             <Sliders className="h-3.5 w-3.5" />
           </Button>
+
+          <LanguageSwitcher variant="pill" />
 
           <Button
             type="button"
             variant="ghost"
             size="iconSm"
             onClick={toggleTheme}
-            className="h-8 w-8 text-zinc-600 dark:text-zinc-300"
-            title={isDark ? "Ganti ke Tema Terang (Light)" : "Ganti ke Tema Gelap (Dark)"}
+            className="h-8 w-8 text-zinc-600 dark:text-zinc-300 cursor-pointer"
+            title={isDark ? t.common.lightTheme : t.common.darkTheme}
           >
             {isDark ? (
               <Sun className="h-3.5 w-3.5 text-amber-500" />
@@ -603,20 +608,32 @@ export function ChatWorkspace({
 
               <div className="space-y-2">
                 <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-                  Selamat Datang di Enterprise Knowledge Base
+                  {t.chat.emptyStateTitle}
                 </h1>
                 <p className="mx-auto max-w-xl text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
-                  Mesin RAG ini menggunakan pencarian vektor kosinus dengan prinsip{" "}
-                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                    Strict Grounding
-                  </span>
-                  . Setiap jawaban diverifikasi langsung dari potongan dokumen terindeks lengkap dengan penanda sitasi sumber.
+                  {t.chat.emptyStateSubtitle}
                 </p>
               </div>
 
               {/* 3 Prompt Starter Chips */}
               <div className="grid gap-3 pt-4 sm:grid-cols-3 text-left">
-                {PROMPT_STARTERS.map((starter, i) => {
+                {[
+                  {
+                    title: t.chat.starter1Title,
+                    prompt: t.chat.starter1Prompt,
+                    icon: Layers,
+                  },
+                  {
+                    title: t.chat.starter2Title,
+                    prompt: t.chat.starter2Prompt,
+                    icon: Zap,
+                  },
+                  {
+                    title: t.chat.starter3Title,
+                    prompt: t.chat.starter3Prompt,
+                    icon: ShieldCheck,
+                  },
+                ].map((starter, i) => {
                   const Icon = starter.icon;
                   return (
                     <button
@@ -800,7 +817,7 @@ export function ChatWorkspace({
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Tanyakan apapun mengenai dokumen terindeks... (Tekan Enter untuk kirim)"
+              placeholder={isLoading ? t.chat.inputPlaceholderGenerating : t.chat.inputPlaceholder}
               rows={1}
               className="w-full resize-none bg-transparent px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none dark:text-zinc-100 dark:placeholder-zinc-500 min-h-[42px] max-h-32"
             />
@@ -815,19 +832,19 @@ export function ChatWorkspace({
                   className="h-8 gap-1.5 px-2 text-xs text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
                 >
                   <Paperclip className="h-3.5 w-3.5" />
-                  <span>Lampirkan Dokumen</span>
+                  <span>{t.documents.uploadTitle}</span>
                 </Button>
 
                 {documents && documents.length > 0 && (
                   <div className="flex items-center gap-1">
-                    <span className="text-[11px] text-zinc-400 hidden md:inline">Cakupan:</span>
+                    <span className="text-[11px] text-zinc-400 hidden md:inline">Scope:</span>
                     <select
                       value={scopedDocumentId || ""}
                       onChange={(e) => setScopedDocumentId(e.target.value || null)}
                       className="rounded-lg border border-zinc-200 bg-white/90 px-2 py-1 text-[11px] text-zinc-700 transition hover:border-zinc-300 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 max-w-[170px] truncate cursor-pointer"
-                      title="Filter cakupan retrieval ke dokumen tertentu"
+                      title="Filter retrieval scope"
                     >
-                      <option value="">Semua Dokumen ({documents.length})</option>
+                      <option value="">All Documents ({documents.length})</option>
                       {documents.map((doc) => (
                         <option key={doc.id} value={doc.id}>
                           {doc.title}
@@ -838,7 +855,7 @@ export function ChatWorkspace({
                 )}
 
                 <Badge variant="secondary" className="text-[10px] hidden sm:inline-flex">
-                  Strict Grounding Aktif
+                  {t.chat.groundingBadge}
                 </Badge>
               </div>
 
@@ -853,7 +870,7 @@ export function ChatWorkspace({
                       ? "bg-rose-100 text-rose-600 dark:bg-rose-950/80 dark:text-rose-400 animate-pulse ring-2 ring-rose-500"
                       : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
                   }`}
-                  title={isListening ? "Hentikan perekaman suara" : "Gunakan input suara (Speech-to-Text)"}
+                  title={isListening ? t.chat.stopListening : t.chat.voiceQuery}
                 >
                   {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                 </Button>
@@ -864,9 +881,9 @@ export function ChatWorkspace({
                   size="sm"
                   onClick={() => handleSendMessage()}
                   disabled={isLoading || !input.trim()}
-                  className="h-8 gap-1.5 px-3 text-xs"
+                  className="h-8 gap-1.5 px-3 text-xs cursor-pointer"
                 >
-                  <span>Kirim</span>
+                  <span>{t.chat.send}</span>
                   <Send className="h-3.5 w-3.5" />
                 </Button>
               </div>

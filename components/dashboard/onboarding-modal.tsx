@@ -13,6 +13,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/lib/i18n/context";
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -21,55 +22,56 @@ interface OnboardingModalProps {
   onOpenSettings: () => void;
 }
 
-const FEATURE_HIGHLIGHTS = [
-  {
-    icon: ShieldCheck,
-    title: "Strict Grounding & Audit Halusinasi",
-    desc: "Setiap kalimat diverifikasi terhadap sitasi dokumen asli dengan skor kepatuhan anti-halusinasi transparan.",
-    color: "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/60",
-  },
-  {
-    icon: Cpu,
-    title: "Hybrid Search & Cross-Encoder Re-Ranking",
-    desc: "Mengombinasikan Dense Vector Cosine Similarity dengan Sparse BM25 Lexical untuk presisi retrieval tertinggi.",
-    color: "text-indigo-500 bg-indigo-50 dark:bg-indigo-950/60",
-  },
-  {
-    icon: Key,
-    title: "Bring-Your-Own-Key (BYOK) Publik",
-    desc: "Masukkan OpenAI / Gemini API key Anda sendiri di pengaturan untuk bypass kuota host tanpa batas.",
-    color: "text-amber-500 bg-amber-50 dark:bg-amber-950/60",
-  },
-  {
-    icon: FileText,
-    title: "Sanitasi PII & Proteksi Data Korporat",
-    desc: "Otomatis menyensor NIK KTP, nomor kartu kredit, dan rahasia API sebelum vektorisasi dokumen.",
-    color: "text-rose-500 bg-rose-50 dark:bg-rose-950/60",
-  },
-];
-
-const SAMPLE_PROMPTS = [
-  "Apa standar arsitektur cloud dan pemulihan bencana (DRP)?",
-  "Sebutkan temuan kunci, metrik teknis, dan rekomendasi utama.",
-  "Bagaimana mitigasi risiko operasional dan batasan implementasi?",
-];
-
 export function OnboardingModal({
   isOpen,
   onClose,
   onSelectSamplePrompt,
   onOpenSettings,
 }: OnboardingModalProps) {
+  const { t } = useLanguage();
   const [dontShowAgain, setDontShowAgain] = React.useState(false);
 
   if (!isOpen) return null;
+
+  const featureHighlights = [
+    {
+      icon: ShieldCheck,
+      title: "Strict Grounding & Audit",
+      desc: "Every sentence is strictly verified against cited enterprise documents to eliminate hallucinations.",
+      color: "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/60",
+    },
+    {
+      icon: Cpu,
+      title: "Hybrid Search & Re-Ranking",
+      desc: "Combines Dense Vector Cosine Similarity with Sparse BM25 Lexical search for highest retrieval accuracy.",
+      color: "text-indigo-500 bg-indigo-50 dark:bg-indigo-950/60",
+    },
+    {
+      icon: Key,
+      title: "Bring-Your-Own-Key (BYOK)",
+      desc: "Input your OpenAI or Gemini API key in settings to bypass server host rate limits without restrictions.",
+      color: "text-amber-500 bg-amber-50 dark:bg-amber-950/60",
+    },
+    {
+      icon: FileText,
+      title: "PII Sanitization & Magic Bytes",
+      desc: "Automatically masks NIK, credit cards, phone numbers, and API keys before vectorizing documents.",
+      color: "text-rose-500 bg-rose-50 dark:bg-rose-950/60",
+    },
+  ];
+
+  const samplePrompts = [
+    "What are the cloud architecture and disaster recovery (DRP) standards?",
+    "Summarize key technical metrics, SLA targets, and critical recommendations.",
+    "Describe operational risk mitigations and implementation constraints.",
+  ];
 
   const handleClose = () => {
     if (dontShowAgain && typeof window !== "undefined") {
       try {
         localStorage.setItem("enterprise_rag_onboarding_dismissed", "true");
       } catch (e) {
-        console.warn("Gagal menyimpan preferensi onboarding:", e);
+        console.warn("Failed to save onboarding preference:", e);
       }
     }
     onClose();
@@ -92,21 +94,21 @@ export function OnboardingModal({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-50">
-                  Selamat Datang di Cortex Enterprise RAG
+                  {t.modals.onboarding.title}
                 </h3>
                 <span className="rounded bg-emerald-100 px-1.5 py-0.2 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400">
                   v2.0 Public
                 </span>
               </div>
               <p className="text-xs text-zinc-500">
-                Mesin pencarian semantik korporat berbasis Retrieval-Augmented Generation terverifikasi.
+                {t.modals.onboarding.desc}
               </p>
             </div>
           </div>
           <button
             onClick={handleClose}
             className="rounded-full p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer"
-            title="Tutup panduan"
+            title="Close tour"
           >
             <X className="h-4 w-4" />
           </button>
@@ -114,7 +116,7 @@ export function OnboardingModal({
 
         {/* Feature Grid */}
         <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {FEATURE_HIGHLIGHTS.map((item, idx) => {
+          {featureHighlights.map((item, idx) => {
             const Icon = item.icon;
             return (
               <div
@@ -140,10 +142,10 @@ export function OnboardingModal({
         {/* Quick Starter Prompts */}
         <div className="mt-5">
           <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-            Coba Pertanyaan Contoh:
+            Sample Prompts:
           </label>
           <div className="mt-2 space-y-1.5">
-            {SAMPLE_PROMPTS.map((prompt, idx) => (
+            {samplePrompts.map((prompt, idx) => (
               <button
                 key={idx}
                 type="button"
@@ -166,7 +168,7 @@ export function OnboardingModal({
               onChange={(e) => setDontShowAgain(e.target.checked)}
               className="rounded accent-emerald-500"
             />
-            <span>Jangan tampilkan lagi panduan ini</span>
+            <span>{t.modals.onboarding.dismiss}</span>
           </label>
 
           <div className="flex items-center gap-2">
@@ -178,7 +180,7 @@ export function OnboardingModal({
                 handleClose();
                 onOpenSettings();
               }}
-              className="gap-1.5 text-xs"
+              className="gap-1.5 text-xs cursor-pointer"
             >
               <Key className="h-3 w-3 text-amber-500" />
               <span>Set BYOK</span>
@@ -188,10 +190,10 @@ export function OnboardingModal({
               variant="default"
               size="sm"
               onClick={handleClose}
-              className="gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
             >
               <CheckCircle2 className="h-3.5 w-3.5" />
-              <span>Mulai Eksplorasi</span>
+              <span>{t.modals.onboarding.getStarted}</span>
             </Button>
           </div>
         </div>

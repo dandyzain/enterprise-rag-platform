@@ -26,6 +26,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useTheme } from "@/components/providers/theme-provider";
+import { useLanguage } from "@/lib/i18n/context";
+import { LanguageSwitcher } from "@/components/ui/language-switcher";
 
 interface CodeSnippet {
   curl: string;
@@ -165,6 +167,7 @@ print(res.json())`,
 
 export default function DocsPage() {
   const { isDark, toggleTheme } = useTheme();
+  const { t } = useLanguage();
   const [selectedLang, setSelectedLang] = React.useState<"curl" | "typescript" | "python">("curl");
   const [copiedKey, setCopiedKey] = React.useState<string | null>(null);
 
@@ -240,14 +243,16 @@ export default function DocsPage() {
               href="/"
               className="text-xs text-zinc-400 hover:text-zinc-200 transition"
             >
-              Beranda
+              {t.common.back}
             </Link>
+
+            <LanguageSwitcher variant="pill" />
 
             <button
               type="button"
               onClick={toggleTheme}
               className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/80 text-zinc-300 hover:text-white transition cursor-pointer"
-              title={isDark ? "Ganti ke Tema Terang (Light)" : "Ganti ke Tema Gelap (Dark)"}
+              title={isDark ? t.common.lightTheme : t.common.darkTheme}
             >
               {isDark ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-zinc-300" />}
             </button>
@@ -257,7 +262,7 @@ export default function DocsPage() {
                 size="sm"
                 className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-500 shadow-md shadow-emerald-600/20 text-xs"
               >
-                <span>Buka Workspace</span>
+                <span>{t.nav.dashboard}</span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </Button>
             </Link>

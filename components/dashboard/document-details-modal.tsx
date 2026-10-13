@@ -20,6 +20,7 @@ import { formatBytes } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { useLanguage } from "@/lib/i18n/context";
 
 interface DocumentDetailsModalProps {
   document: DocumentItem | null;
@@ -34,6 +35,7 @@ export function DocumentDetailsModal({
   onClose,
   onDeleted,
 }: DocumentDetailsModalProps) {
+  const { t } = useLanguage();
   const [chunks, setChunks] = React.useState<DocumentChunkItem[]>([]);
   const [isLoadingChunks, setIsLoadingChunks] = React.useState(true);
   const [isDeleting, setIsDeleting] = React.useState(false);
@@ -56,7 +58,7 @@ export function DocumentDetailsModal({
           setChunks(json.data.chunks || []);
         }
       } catch (err) {
-        console.error("Gagal mengambil chunks dokumen:", err);
+        console.error("Failed fetching document chunks:", err);
       } finally {
         if (!ignore) {
           setIsLoadingChunks(false);
@@ -80,15 +82,15 @@ export function DocumentDetailsModal({
       const json = await res.json();
 
       if (!res.ok || !json.success) {
-        throw new Error(json.error || "Gagal menghapus dokumen.");
+        throw new Error(json.error || "Failed to delete document.");
       }
 
-      toast.success(`Dokumen "${document.title}" dan seluruh vektornya berhasil dihapus.`);
+      toast.success(`Document "${document.title}" and its vectors deleted successfully.`);
       onDeleted();
       onClose();
     } catch (err: unknown) {
       const error = err as Error;
-      toast.error(error.message || "Gagal menghapus dokumen.");
+      toast.error(error.message || "Failed to delete document.");
     } finally {
       setIsDeleting(false);
       setShowConfirmDelete(false);
@@ -99,17 +101,15 @@ export function DocumentDetailsModal({
     try {
       await navigator.clipboard.writeText(content);
       setCopiedChunkId(chunkId);
-      toast.success("Teks chunk disalin ke clipboard!");
-      setTimeout(() => {
-        setCopiedChunkId(null);
-      }, 2000);
+      toast.success(t.common.copied);
+      setTimeout(() => setCopiedChunkId(null), 2000);
     } catch {
-      toast.error("Gagal menyalin teks.");
+      toast.error("Failed to copy text.");
     }
   };
 
   const handleExportJson = () => {
-    const exportPayload = {
+    const data = {
       documentId: document.id,
       title: document.title,
       fileSize: document.fileSize,
@@ -123,7 +123,7 @@ export function DocumentDetailsModal({
       })),
     };
 
-    const blob = new Blob([JSON.stringify(exportPayload, null, 2)], {
+    const blob = new Blob([JSON.stringify(data, null, 2)], {
       type: "application/json",
     });
     const url = URL.createObjectURL(blob);
@@ -132,7 +132,7 @@ export function DocumentDetailsModal({
     a.download = `${document.title.replace(/[^a-zA-Z0-9_-]/g, "_")}-chunks.json`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("Chunks berhasil diekspor sebagai JSON.");
+    toast.success("Chunks exported as JSON.");
   };
 
   const handleExportMarkdown = () => {
@@ -142,7 +142,7 @@ export function DocumentDetailsModal({
     md += `- Chunks: ${chunks.length}\n\n---\n\n`;
 
     chunks.forEach((chunk) => {
-      md += `### Chunk #${chunk.chunkIndex + 1} (Halaman ${chunk.pageNumber || "N/A"})\n\n`;
+      md += `### Chunk #${chunk.chunkIndex + 1} (Page ${chunk.pageNumber || "N/A"})\n\n`;
       md += `${chunk.content}\n\n---\n\n`;
     });
 
@@ -153,7 +153,7 @@ export function DocumentDetailsModal({
     a.download = `${document.title.replace(/[^a-zA-Z0-9_-]/g, "_")}-chunks.md`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("Chunks berhasil diekspor sebagai Markdown.");
+    toast.success("Chunks exported as Markdown.");
   };
 
   const filteredChunks = chunks.filter((c) => {
@@ -161,7 +161,7 @@ export function DocumentDetailsModal({
     const query = searchQuery.toLowerCase();
     const matchesContent = c.content.toLowerCase().includes(query);
     const matchesIndex = (c.chunkIndex + 1).toString() === query;
-    const matchesPage = c.pageNumber ? `halaman ${c.pageNumber}`.includes(query) : false;
+    const matchesPage = c.pageNumber ? `page ${c.pageNumber}`.includes(query) : false;
     return matchesContent || matchesIndex || matchesPage;
   });
 
@@ -179,13 +179,13 @@ export function DocumentDetailsModal({
                 {document.title}
               </h3>
               <p className="text-xs text-zinc-500">
-                {formatBytes(document.fileSize)} • {document.chunkCount} potongan teks terindeks (HNSW Cosine)
+                {formatBytes(document.fileSize)} • {document.chunkCount} {t.sidebar.chunksCount} (HNSW Cosine)
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="rounded-full p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+            className="rounded-full p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer"
           >
             <X className="h-4 w-4" />
           </button>
@@ -199,7 +199,7 @@ export function DocumentDetailsModal({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari kata kunci, nomor halaman, atau index chunk..."
+              placeholder="Filter keywords, page number, or chunk index..."
               className="w-full rounded-lg border border-zinc-200 bg-white pl-9 pr-3 py-1.5 text-xs text-zinc-800 placeholder-zinc-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200"
             />
           </div>
@@ -211,8 +211,8 @@ export function DocumentDetailsModal({
               size="sm"
               onClick={handleExportJson}
               disabled={chunks.length === 0}
-              className="h-8 gap-1.5 text-xs font-medium"
-              title="Unduh seluruh chunk dalam format JSON"
+              className="h-8 gap-1.5 text-xs font-medium cursor-pointer"
+              title="Download chunks as JSON"
             >
               <FileJson className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>JSON</span>
@@ -223,8 +223,8 @@ export function DocumentDetailsModal({
               size="sm"
               onClick={handleExportMarkdown}
               disabled={chunks.length === 0}
-              className="h-8 gap-1.5 text-xs font-medium"
-              title="Unduh seluruh chunk dalam format Markdown"
+              className="h-8 gap-1.5 text-xs font-medium cursor-pointer"
+              title="Download chunks as Markdown"
             >
               <Download className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>Markdown</span>
@@ -236,7 +236,7 @@ export function DocumentDetailsModal({
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-              Recursive Chunks ({filteredChunks.length}{chunks.length !== filteredChunks.length ? ` dari ${chunks.length}` : ""})
+              Recursive Chunks ({filteredChunks.length}{chunks.length !== filteredChunks.length ? ` of ${chunks.length}` : ""})
             </span>
             <Badge variant="ready" className="text-[11px]">
               HNSW Cosine Indexed
@@ -246,13 +246,13 @@ export function DocumentDetailsModal({
           {isLoadingChunks ? (
             <div className="flex flex-col items-center justify-center py-16 text-zinc-400">
               <RefreshCw className="h-6 w-6 animate-spin" />
-              <p className="mt-2 text-xs">Memuat potongan vektor...</p>
+              <p className="mt-2 text-xs">{t.common.loading}</p>
             </div>
           ) : filteredChunks.length === 0 ? (
             <div className="rounded-xl border border-dashed border-zinc-200 p-8 text-center text-zinc-400 dark:border-zinc-800">
               <Layers className="mx-auto h-8 w-8 text-zinc-300 dark:text-zinc-700" />
               <p className="mt-2 text-xs">
-                {searchQuery ? "Tidak ada chunk yang cocok dengan kata kunci pencarian." : "Tidak ada data chunk yang ditemukan."}
+                {searchQuery ? "No chunks matched the search query." : "No chunk data available."}
               </p>
             </div>
           ) : (
@@ -267,23 +267,23 @@ export function DocumentDetailsModal({
                     <div className="flex items-center justify-between pb-2 mb-2 border-b border-zinc-100 dark:border-zinc-800/60">
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-xs font-bold text-emerald-700 dark:text-emerald-400">
-                          Chunk #{chunk.chunkIndex + 1}
+                          {t.modals.docDetails.chunkIndex} {chunk.chunkIndex + 1}
                         </span>
                         <Badge variant="secondary" className="text-[10px]">
                           <BookOpen className="mr-1 h-3 w-3" />
-                          {chunk.pageNumber ? `Halaman ${chunk.pageNumber}` : "Halaman N/A"}
+                          {chunk.pageNumber ? `Page ${chunk.pageNumber}` : "Page N/A"}
                         </Badge>
                       </div>
 
                       <div className="flex items-center gap-2">
                         <span className="text-[11px] font-mono text-zinc-400">
-                          ~{estTokens} token ({chunk.content.length} karakter)
+                          ~{estTokens} tokens ({chunk.content.length} chars)
                         </span>
                         <button
                           type="button"
                           onClick={() => handleCopyChunk(chunk.id, chunk.content)}
-                          className="rounded-md border border-zinc-200 bg-white p-1 text-zinc-500 hover:text-emerald-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:text-emerald-400 transition"
-                          title="Salin teks chunk"
+                          className="rounded-md border border-zinc-200 bg-white p-1 text-zinc-500 hover:text-emerald-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:text-emerald-400 transition cursor-pointer"
+                          title={t.common.copy}
                         >
                           {copiedChunkId === chunk.id ? (
                             <Check className="h-3 w-3 text-emerald-600" />
@@ -311,16 +311,16 @@ export function DocumentDetailsModal({
               variant="outline"
               size="sm"
               onClick={() => setShowConfirmDelete(true)}
-              className="gap-1.5 text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/30"
+              className="gap-1.5 text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/30 cursor-pointer"
             >
               <Trash2 className="h-3.5 w-3.5" />
-              <span>Hapus Dokumen</span>
+              <span>{t.documents.deleteDocument}</span>
             </Button>
           ) : (
             <div className="flex items-center gap-2">
               <span className="flex items-center gap-1 text-xs text-rose-600 dark:text-rose-400 font-medium">
                 <AlertTriangle className="h-3.5 w-3.5" />
-                Yakin hapus dokumen ini?
+                {t.sidebar.deleteDocConfirm}
               </span>
               <Button
                 type="button"
@@ -328,24 +328,24 @@ export function DocumentDetailsModal({
                 size="sm"
                 onClick={handleDelete}
                 disabled={isDeleting}
-                className="h-7 text-xs"
+                className="h-7 text-xs cursor-pointer"
               >
-                {isDeleting ? "Menghapus..." : "Ya, Hapus"}
+                {isDeleting ? t.common.loading : t.common.confirm}
               </Button>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowConfirmDelete(false)}
-                className="h-7 text-xs"
+                className="h-7 text-xs cursor-pointer"
               >
-                Batal
+                {t.common.cancel}
               </Button>
             </div>
           )}
 
-          <Button type="button" variant="outline" size="sm" onClick={onClose} className="text-xs">
-            Tutup
+          <Button type="button" variant="outline" size="sm" onClick={onClose} className="text-xs cursor-pointer">
+            {t.common.close}
           </Button>
         </div>
       </div>
