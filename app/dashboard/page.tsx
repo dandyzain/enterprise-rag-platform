@@ -237,9 +237,11 @@ export default function DashboardPage() {
     }
   };
 
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = React.useState(false);
+
   return (
     <div className="relative flex h-full w-full overflow-hidden bg-white dark:bg-zinc-950">
-      {/* 1. Left Collapsible Sidebar */}
+      {/* 1. Left Collapsible Sidebar (Responsive Off-Canvas on Mobile) */}
       <Sidebar
         documents={documents}
         knowledgeBases={knowledgeBases}
@@ -247,23 +249,35 @@ export default function DashboardPage() {
         onSelectKb={(id) => {
           setSelectedKbId(id);
           setActiveSessionId(null);
+          setIsMobileSidebarOpen(false);
         }}
         isLoading={isLoadingDocs}
         onRefreshDocs={handleRefresh}
         onUploadSuccess={handleRefresh}
         onInspectDocument={(doc) => setInspectingDoc(doc)}
         onDeleteDocument={handleDeleteDocument}
-        onOpenCreateKb={() => setIsCreateKbOpen(true)}
+        onOpenCreateKb={() => {
+          setIsCreateKbOpen(true);
+          setIsMobileSidebarOpen(false);
+        }}
         chatSessions={chatSessions}
         activeSessionId={activeSessionId}
-        onSelectSession={(id) => setActiveSessionId(id)}
-        onNewSession={handleCreateNewSession}
+        onSelectSession={(id) => {
+          setActiveSessionId(id);
+          setIsMobileSidebarOpen(false);
+        }}
+        onNewSession={() => {
+          void handleCreateNewSession();
+          setIsMobileSidebarOpen(false);
+        }}
         onDeleteSession={handleDeleteSession}
         onRenameSession={handleRenameSession}
+        isMobileOpen={isMobileSidebarOpen}
+        onCloseMobile={() => setIsMobileSidebarOpen(false)}
       />
 
       {/* 2. Central Focused Chat Workspace */}
-      <main className="relative flex flex-1 flex-col h-full overflow-hidden">
+      <main className="relative flex flex-1 flex-col h-full overflow-hidden w-full min-w-0">
         <ChatWorkspace
           knowledgeBaseId={selectedKbId}
           activeSessionId={activeSessionId}
@@ -277,6 +291,7 @@ export default function DashboardPage() {
           onOpenSearchPlayground={() => setIsSearchPlaygroundOpen(true)}
           onOpenAnalytics={() => setIsAnalyticsOpen(true)}
           onOpenOnboarding={() => setIsOnboardingOpen(true)}
+          onToggleMobileSidebar={() => setIsMobileSidebarOpen((prev) => !prev)}
         />
       </main>
 

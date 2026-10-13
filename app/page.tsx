@@ -107,30 +107,30 @@ export default function HomePage() {
 
       {/* Top Navigation */}
       <header className="relative z-10 border-b border-zinc-800/80 bg-zinc-950/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-lg shadow-emerald-500/20">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-lg shadow-emerald-500/20">
               <Database className="h-5 w-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <span className="text-sm font-bold tracking-tight text-zinc-50">
                 {t.common.brand}
               </span>
-              <span className="ml-2 rounded-full border border-emerald-500/30 bg-emerald-950/60 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+              <span className="ml-1.5 sm:ml-2 rounded-full border border-emerald-500/30 bg-emerald-950/60 px-1.5 sm:px-2 py-0.5 text-[10px] font-semibold text-emerald-400 hidden xs:inline-block">
                 v2.0 {t.common.enterpriseBadge}
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900/60 px-3 py-1 text-xs text-zinc-400">
+          <div className="flex items-center gap-1.5 sm:gap-3">
+            <div className="hidden md:flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900/60 px-3 py-1 text-xs text-zinc-400">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>pgvector HNSW Operator Ready</span>
             </div>
 
             <Link
               href="/docs"
-              className="text-xs text-zinc-400 hover:text-emerald-400 transition font-medium mr-1"
+              className="text-xs text-zinc-400 hover:text-emerald-400 transition font-medium px-1.5 py-1"
             >
               {t.nav.docs}
             </Link>
@@ -142,7 +142,7 @@ export default function HomePage() {
             <button
               type="button"
               onClick={toggleTheme}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/80 text-zinc-300 hover:text-white transition cursor-pointer"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/80 text-zinc-300 hover:text-white transition cursor-pointer shrink-0"
               title={isDark ? t.common.lightTheme : t.common.darkTheme}
             >
               {isDark ? (
@@ -154,14 +154,14 @@ export default function HomePage() {
 
             {user ? (
               <div className="flex items-center gap-2">
-                <span className="hidden md:inline text-xs text-zinc-400 font-medium">
+                <span className="hidden lg:inline text-xs text-zinc-400 font-medium">
                   {user.name} ({user.plan})
                 </span>
                 <Link href="/dashboard">
                   <Button
                     variant="default"
                     size="sm"
-                    className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-500 shadow-md shadow-emerald-600/20"
+                    className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-500 shadow-md shadow-emerald-600/20 px-2.5 sm:px-3 text-xs"
                   >
                     <span>{t.nav.dashboard}</span>
                     <ArrowRight className="h-3.5 w-3.5" />
@@ -169,8 +169,8 @@ export default function HomePage() {
                 </Link>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
-                <Link href="/login">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <Link href="/login" className="hidden sm:inline-block">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -183,9 +183,10 @@ export default function HomePage() {
                   <Button
                     variant="default"
                     size="sm"
-                    className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-500 shadow-md shadow-emerald-600/20"
+                    className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-500 shadow-md shadow-emerald-600/20 px-2.5 sm:px-3 text-xs"
                   >
-                    <span>{t.landing.startSandbox}</span>
+                    <span className="hidden sm:inline">{t.landing.startSandbox}</span>
+                    <span className="sm:hidden">{t.nav.dashboard}</span>
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Button>
                 </Link>
@@ -196,29 +197,29 @@ export default function HomePage() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative z-10 mx-auto max-w-5xl px-6 pt-20 pb-16 text-center">
-        <div className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900/80 px-3 py-1 text-xs text-zinc-300 backdrop-blur-xs mb-6">
-          <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
-          <span>Next.js 16 • Hybrid BM25 & Dense RRF • Cross-Encoder Re-Ranking</span>
+      <section className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 pt-12 sm:pt-20 pb-12 sm:pb-16 text-center">
+        <div className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900/80 px-3 py-1 text-[11px] sm:text-xs text-zinc-300 backdrop-blur-xs mb-6">
+          <Sparkles className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+          <span className="truncate">Next.js 16 • Hybrid BM25 & Dense RRF • Cross-Encoder Re-Ranking</span>
         </div>
 
-        <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl text-zinc-50 leading-[1.15]">
+        <h1 className="text-3xl font-extrabold tracking-tight sm:text-5xl md:text-6xl text-zinc-50 leading-[1.18] sm:leading-[1.15]">
           {t.landing.heroTitle1}{" "}
           <span className="bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
             {t.landing.heroTitle2}
           </span>
         </h1>
 
-        <p className="mx-auto mt-6 max-w-2xl text-base sm:text-lg leading-relaxed text-zinc-400">
+        <p className="mx-auto mt-4 sm:mt-6 max-w-2xl text-sm sm:text-base md:text-lg leading-relaxed text-zinc-400">
           {t.landing.heroSubtitle}
         </p>
 
         {/* CTA Buttons */}
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-          <Link href="/dashboard">
+        <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 w-full sm:w-auto max-w-sm sm:max-w-none mx-auto">
+          <Link href="/dashboard" className="w-full sm:w-auto">
             <Button
               size="lg"
-              className="h-12 gap-2 bg-emerald-600 px-7 text-sm font-semibold text-white hover:bg-emerald-500 shadow-lg shadow-emerald-600/30 transition hover:scale-102"
+              className="h-11 sm:h-12 w-full sm:w-auto gap-2 bg-emerald-600 px-7 text-sm font-semibold text-white hover:bg-emerald-500 shadow-lg shadow-emerald-600/30 transition hover:scale-102 cursor-pointer"
             >
               <span>{t.landing.startSandbox}</span>
               <ArrowRight className="h-4 w-4" />
@@ -229,7 +230,7 @@ export default function HomePage() {
             size="lg"
             variant="outline"
             onClick={() => runQuickSearch(testQuery)}
-            className="h-12 gap-2 border-zinc-800 bg-zinc-900/60 px-6 text-sm text-zinc-200 hover:bg-zinc-800 hover:text-white"
+            className="h-11 sm:h-12 w-full sm:w-auto gap-2 border-zinc-800 bg-zinc-900/60 px-6 text-sm text-zinc-200 hover:bg-zinc-800 hover:text-white cursor-pointer"
           >
             <Search className="h-4 w-4 text-emerald-400" />
             <span>{t.landing.searchButton}</span>
@@ -237,30 +238,30 @@ export default function HomePage() {
         </div>
 
         {/* System Highlights Badges */}
-        <div className="mt-12 flex flex-wrap items-center justify-center gap-6 border-y border-zinc-800/80 py-4 text-xs text-zinc-400">
+        <div className="mt-10 sm:mt-12 flex flex-wrap items-center justify-center gap-4 sm:gap-6 border-y border-zinc-800/80 py-4 text-xs text-zinc-400">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
             <span>Strict Grounding Compliance</span>
           </div>
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
             <span>Cosine Similarity Threshold &gt;= 0.65</span>
           </div>
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
             <span>Reciprocal Rank Fusion (k=60)</span>
           </div>
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
             <span>Multi-Page PDF Token Tracking</span>
           </div>
         </div>
       </section>
 
       {/* Live Interactive Search Sandbox */}
-      <section className="relative z-10 mx-auto max-w-4xl px-6 py-8">
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6 shadow-2xl backdrop-blur-xl">
-          <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
+      <section className="relative z-10 mx-auto max-w-4xl px-4 sm:px-6 py-6 sm:py-8">
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 sm:p-6 shadow-2xl backdrop-blur-xl">
+          <div className="flex items-center justify-between pb-3 sm:pb-4 border-b border-zinc-800">
             <div className="flex items-center gap-2">
               <Zap className="h-4 w-4 text-emerald-400" />
               <h3 className="text-sm font-bold text-zinc-100">
@@ -274,7 +275,7 @@ export default function HomePage() {
             )}
           </div>
 
-          <div className="mt-4 flex gap-2">
+          <div className="mt-4 flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
               <input
                 type="text"
@@ -282,7 +283,7 @@ export default function HomePage() {
                 onChange={(e) => setTestQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && runQuickSearch(testQuery)}
                 placeholder={t.landing.searchPlaceholder}
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-xs text-zinc-100 placeholder-zinc-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 sm:px-4 py-2.5 text-xs text-zinc-100 placeholder-zinc-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               />
             </div>
             <Button
@@ -291,7 +292,7 @@ export default function HomePage() {
               size="sm"
               disabled={isSearching}
               onClick={() => runQuickSearch(testQuery)}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-4"
+              className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-4 h-9 sm:h-auto cursor-pointer"
             >
               {isSearching ? t.landing.searching : t.landing.searchButton}
             </Button>

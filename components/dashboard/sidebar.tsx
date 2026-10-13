@@ -59,6 +59,8 @@ interface SidebarProps {
   onNewSession: () => void;
   onDeleteSession: (id: string) => void;
   onRenameSession?: (id: string, newTitle: string) => void;
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
 export function Sidebar({
@@ -78,6 +80,8 @@ export function Sidebar({
   onNewSession,
   onDeleteSession,
   onRenameSession,
+  isMobileOpen = false,
+  onCloseMobile,
 }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<"docs" | "chats">("docs");
@@ -198,44 +202,68 @@ export function Sidebar({
   };
 
   return (
-    <aside
-      className={`relative flex flex-col border-r border-zinc-200 bg-zinc-50/70 transition-all duration-300 dark:border-zinc-800 dark:bg-zinc-950/80 backdrop-blur-xl ${
-        isCollapsed ? "w-16" : "w-80"
-      }`}
-    >
-      {/* Collapse Toggle Button */}
-      <button
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute -right-3.5 top-6 z-20 flex h-7 w-7 items-center justify-center rounded-full border border-zinc-200 bg-white shadow-xs transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
-        title={isCollapsed ? "Buka Sidebar" : "Ciutkan Sidebar"}
-      >
-        {isCollapsed ? (
-          <ChevronRight className="h-3.5 w-3.5 text-zinc-600 dark:text-zinc-300" />
-        ) : (
-          <ChevronLeft className="h-3.5 w-3.5 text-zinc-600 dark:text-zinc-300" />
-        )}
-      </button>
+    <>
+      {/* Mobile Backdrop Overlay */}
+      {isMobileOpen && (
+        <div
+          onClick={onCloseMobile}
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs md:hidden animate-in fade-in duration-200"
+          aria-hidden="true"
+        />
+      )}
 
-      {/* Top Header: Platform Identity & KB Switcher */}
-      <div className="border-b border-zinc-200/80 p-4 dark:border-zinc-800/80">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm shadow-emerald-500/20">
-            <Database className="h-5 w-5" />
-          </div>
-          {!isCollapsed && (
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-                  Cortex RAG
-                </span>
-                <span className="rounded bg-emerald-100 px-1.5 py-0.2 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400">
-                  Enterprise
-                </span>
-              </div>
-              <p className="truncate text-xs text-zinc-500">Semantic Vector Engine</p>
-            </div>
+      <aside
+        className={`fixed md:static inset-y-0 left-0 z-50 md:z-20 flex flex-col border-r border-zinc-200 bg-zinc-50/95 dark:border-zinc-800 dark:bg-zinc-950/95 backdrop-blur-xl transition-all duration-300 ease-in-out shadow-2xl md:shadow-none h-full ${
+          isMobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        } ${
+          isCollapsed ? "md:w-16 w-72 sm:w-80" : "w-72 sm:w-80"
+        }`}
+      >
+        {/* Collapse Toggle Button (Desktop only) */}
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="hidden md:flex absolute -right-3.5 top-6 z-20 h-7 w-7 items-center justify-center rounded-full border border-zinc-200 bg-white shadow-xs transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800 cursor-pointer"
+          title={isCollapsed ? "Buka Sidebar" : "Ciutkan Sidebar"}
+        >
+          {isCollapsed ? (
+            <ChevronRight className="h-3.5 w-3.5 text-zinc-600 dark:text-zinc-300" />
+          ) : (
+            <ChevronLeft className="h-3.5 w-3.5 text-zinc-600 dark:text-zinc-300" />
           )}
-        </div>
+        </button>
+
+        {/* Top Header: Platform Identity & KB Switcher */}
+        <div className="border-b border-zinc-200/80 p-4 dark:border-zinc-800/80">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm shadow-emerald-500/20">
+                <Database className="h-5 w-5" />
+              </div>
+              {(!isCollapsed || isMobileOpen) && (
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+                      Cortex RAG
+                    </span>
+                    <span className="rounded bg-emerald-100 px-1.5 py-0.2 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400">
+                      Enterprise
+                    </span>
+                  </div>
+                  <p className="truncate text-xs text-zinc-500">Semantic Vector Engine</p>
+                </div>
+              )}
+            </div>
+
+            {/* Mobile Close Button */}
+            <button
+              type="button"
+              onClick={onCloseMobile}
+              className="md:hidden flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 dark:border-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-900 cursor-pointer"
+              title="Tutup Menu"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
 
         {/* KB Selector with Create Action */}
         {!isCollapsed && (
@@ -568,7 +596,10 @@ export function Sidebar({
                     <div
                       key={session.id}
                       onClick={() => {
-                        if (!isEditing) onSelectSession(session.id);
+                        if (!isEditing) {
+                          onSelectSession(session.id);
+                          onCloseMobile?.();
+                        }
                       }}
                       className={`group flex items-center justify-between rounded-lg p-2 text-xs cursor-pointer transition ${
                         activeSessionId === session.id
@@ -897,5 +928,6 @@ export function Sidebar({
         )}
       </div>
     </aside>
+    </>
   );
 }

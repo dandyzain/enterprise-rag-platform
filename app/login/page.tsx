@@ -65,30 +65,38 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-zinc-100 p-4 selection:bg-emerald-500 selection:text-white">
+    <div className="relative min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-zinc-100 p-3 sm:p-4 selection:bg-emerald-500 selection:text-white">
       {/* Background Subtle Gradient Glow */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_60%_at_50%_20%,rgba(16,185,129,0.12),rgba(255,255,255,0))] pointer-events-none" />
 
-      {/* Top right language switcher and theme toggle */}
-      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
-        <LanguageSwitcher variant="pill" />
-        <button
-          type="button"
-          onClick={toggleTheme}
-          className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/80 text-zinc-300 hover:text-white transition cursor-pointer"
-          title={isDark ? t.common.lightTheme : t.common.darkTheme}
+      {/* Top Bar with Back Link, Language Switcher and Theme Toggle */}
+      <div className="relative z-20 w-full max-w-md flex items-center justify-between px-1 py-3 mb-2">
+        <Link
+          href="/"
+          className="text-xs text-zinc-400 hover:text-emerald-400 transition flex items-center gap-1 font-medium"
         >
-          {isDark ? (
-            <Sun className="h-4 w-4 text-amber-400" />
-          ) : (
-            <Moon className="h-4 w-4 text-zinc-300" />
-          )}
-        </button>
+          ← {t.common.back}
+        </Link>
+        <div className="flex items-center gap-2">
+          <LanguageSwitcher variant="pill" />
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/80 text-zinc-300 hover:text-white transition cursor-pointer"
+            title={isDark ? t.common.lightTheme : t.common.darkTheme}
+          >
+            {isDark ? (
+              <Sun className="h-4 w-4 text-amber-400" />
+            ) : (
+              <Moon className="h-4 w-4 text-zinc-300" />
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Brand Header */}
-      <div className="relative z-10 mb-8 flex flex-col items-center text-center">
-        <Link href="/" className="flex items-center gap-2.5 mb-3 group">
+      <div className="relative z-10 mb-6 flex flex-col items-center text-center">
+        <Link href="/" className="flex items-center gap-2.5 mb-2.5 group">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition">
             <Database className="h-5 w-5" />
           </div>
@@ -99,13 +107,13 @@ export default function LoginPage() {
             {t.common.enterpriseBadge}
           </span>
         </Link>
-        <p className="text-xs text-zinc-400">
+        <p className="text-xs text-zinc-400 px-4 text-center">
           {t.auth.subtitle}
         </p>
       </div>
 
       {/* Card Container */}
-      <div className="relative z-10 w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900/80 p-6 shadow-2xl backdrop-blur-xl">
+      <div className="relative z-10 w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900/80 p-4 sm:p-6 shadow-2xl backdrop-blur-xl">
         {/* Tab Switcher */}
         <div className="flex border-b border-zinc-800 mb-6">
           <button

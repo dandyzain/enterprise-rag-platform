@@ -225,23 +225,23 @@ export default function DocsPage() {
 
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-zinc-800/80 bg-zinc-950/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-lg shadow-emerald-500/20">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <Link href="/" className="flex items-center gap-2">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-lg shadow-emerald-500/20">
                 <Database className="h-5 w-5" />
               </div>
               <span className="text-sm font-bold tracking-tight text-zinc-50">Cortex RAG</span>
             </Link>
-            <span className="rounded-full border border-zinc-800 bg-zinc-900 px-2 py-0.5 text-[11px] font-mono text-zinc-400">
+            <span className="rounded-full border border-zinc-800 bg-zinc-900 px-2 py-0.5 text-[11px] font-mono text-zinc-400 hidden sm:inline-block">
               API Docs v2.0
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Link
               href="/"
-              className="text-xs text-zinc-400 hover:text-zinc-200 transition"
+              className="text-xs text-zinc-400 hover:text-zinc-200 transition px-1.5 py-1"
             >
               {t.common.back}
             </Link>
@@ -251,7 +251,7 @@ export default function DocsPage() {
             <button
               type="button"
               onClick={toggleTheme}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/80 text-zinc-300 hover:text-white transition cursor-pointer"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/80 text-zinc-300 hover:text-white transition cursor-pointer shrink-0"
               title={isDark ? t.common.lightTheme : t.common.darkTheme}
             >
               {isDark ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-zinc-300" />}
@@ -260,7 +260,7 @@ export default function DocsPage() {
               <Button
                 variant="default"
                 size="sm"
-                className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-500 shadow-md shadow-emerald-600/20 text-xs"
+                className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-500 shadow-md shadow-emerald-600/20 text-xs px-2.5 sm:px-3"
               >
                 <span>{t.nav.dashboard}</span>
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -271,7 +271,7 @@ export default function DocsPage() {
       </header>
 
       {/* Main Container */}
-      <div className="mx-auto max-w-7xl px-6 py-10 flex gap-10">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6 sm:py-10 flex gap-6 lg:gap-10">
         {/* Left Sticky Sidebar */}
         <aside className="hidden lg:block w-64 shrink-0">
           <div className="sticky top-26 space-y-6">
@@ -339,7 +339,18 @@ export default function DocsPage() {
         </aside>
 
         {/* Content Area */}
-        <main className="flex-1 min-w-0 max-w-4xl space-y-12">
+        <main className="flex-1 min-w-0 max-w-4xl space-y-8 sm:space-y-12">
+          {/* Mobile Jump Navigation Bar */}
+          <div className="lg:hidden flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-zinc-800 text-xs">
+            <span className="text-zinc-500 text-[11px] shrink-0 font-medium">Nav:</span>
+            <a href="#overview" className="shrink-0 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-zinc-300 hover:text-white">Overview</a>
+            <a href="#authentication" className="shrink-0 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-zinc-300 hover:text-white">BYOK</a>
+            <a href="#endpoint-chat" className="shrink-0 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-zinc-300 hover:text-white">POST /chat</a>
+            <a href="#endpoint-search" className="shrink-0 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-zinc-300 hover:text-white">POST /search</a>
+            <a href="#endpoint-ingest" className="shrink-0 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-zinc-300 hover:text-white">Ingest File</a>
+            <a href="#live-console" className="shrink-0 rounded-lg border border-emerald-500/30 bg-emerald-950/40 px-2.5 py-1 text-emerald-400 font-semibold">Sandbox</a>
+          </div>
+
           {/* 1. Overview */}
           <section id="overview" className="space-y-4">
             <div className="flex items-center gap-2">
@@ -348,7 +359,7 @@ export default function DocsPage() {
               </Badge>
               <span className="text-xs text-zinc-500">Next.js 16 • pgvector • AI SDK</span>
             </div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-white">
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
               Dokumentasi Integrasi Cortex RAG API
             </h1>
             <p className="text-sm leading-relaxed text-zinc-400">

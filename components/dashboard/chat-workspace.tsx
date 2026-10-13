@@ -32,6 +32,8 @@ import {
   MicOff,
   Sun,
   Moon,
+  Menu,
+  MoreVertical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -62,6 +64,7 @@ interface ChatWorkspaceProps {
   onOpenAnalytics: () => void;
   onOpenOnboarding?: () => void;
   initialPrompt?: string;
+  onToggleMobileSidebar?: () => void;
 }
 
 const PROMPT_STARTERS = [
@@ -95,6 +98,7 @@ export function ChatWorkspace({
   onOpenAnalytics,
   onOpenOnboarding,
   initialPrompt,
+  onToggleMobileSidebar,
 }: ChatWorkspaceProps) {
   const { isDark, toggleTheme } = useTheme();
   const { t } = useLanguage();
@@ -105,6 +109,7 @@ export function ChatWorkspace({
   const [selectedGroundedness, setSelectedGroundedness] = React.useState<GroundednessReport | null>(null);
   const [scopedDocumentId, setScopedDocumentId] = React.useState<string | null>(null);
   const [isListening, setIsListening] = React.useState(false);
+  const [showMoreMenu, setShowMoreMenu] = React.useState(false);
   const recognitionRef = React.useRef<any>(null);
   const messagesEndRef = React.useRef<HTMLDivElement | null>(null);
   const streamAccumulatorRef = React.useRef<string>("");
@@ -479,92 +484,169 @@ export function ChatWorkspace({
   return (
     <div className="relative flex flex-1 flex-col h-full overflow-hidden bg-white dark:bg-zinc-950">
       {/* Top Subtle Header Bar */}
-      <header className="flex h-14 items-center justify-between border-b border-zinc-200/80 px-6 backdrop-blur-md dark:border-zinc-800/80">
-        <div className="flex items-center gap-2">
-          <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+      <header className="flex h-14 items-center justify-between border-b border-zinc-200/80 px-3 sm:px-6 backdrop-blur-md dark:border-zinc-800/80">
+        <div className="flex items-center gap-2 min-w-0">
+          {onToggleMobileSidebar && (
+            <button
+              type="button"
+              onClick={onToggleMobileSidebar}
+              className="md:hidden flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-850 cursor-pointer"
+              title="Menu Navigasi"
+            >
+              <Menu className="h-4 w-4" />
+            </button>
+          )}
+          <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 truncate max-w-[130px] sm:max-w-none">
             Semantic Workspace
           </h2>
-          <Badge variant="secondary" className="text-[10px] ml-1">
+          <Badge variant="secondary" className="text-[10px] ml-1 hidden xl:inline-flex">
             Threshold: {ragSettings.similarityThreshold} • Top-{ragSettings.topK}
           </Badge>
         </div>
 
         {/* Header Actions: New Chat, Playground, Metrics, Export, Settings */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={onNewChat}
-            className="h-8 gap-1.5 text-xs text-zinc-600 dark:text-zinc-300"
+            className="h-8 gap-1.5 px-2 sm:px-3 text-xs text-zinc-600 dark:text-zinc-300"
             title="Mulai sesi percakapan baru"
           >
             <PlusCircle className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
             <span className="hidden sm:inline">Sesi Baru</span>
           </Button>
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onOpenSearchPlayground}
-            className="h-8 gap-1.5 text-xs text-zinc-600 dark:text-zinc-300"
-            title="Buka Semantic Vector Search Playground"
-          >
-            <Search className="h-3.5 w-3.5" />
-            <span className="hidden md:inline">Playground Vektor</span>
-          </Button>
-
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onOpenAnalytics}
-            className="h-8 gap-1.5 text-xs text-zinc-600 dark:text-zinc-300"
-            title="Lihat Metrik & Kesehatan Knowledge Base"
-          >
-            <Activity className="h-3.5 w-3.5" />
-            <span className="hidden md:inline">Metrik KB</span>
-          </Button>
-
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={handleExportChat}
-            className="h-8 gap-1.5 text-xs text-zinc-600 dark:text-zinc-300"
-            title="Ekspor percakapan ke Markdown (.md)"
-          >
-            <Download className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">.MD</span>
-          </Button>
-
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={handleExportJson}
-            className="h-8 gap-1.5 text-xs text-zinc-600 dark:text-zinc-300"
-            title="Ekspor percakapan ke JSON (.json)"
-          >
-            <FileJson className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">.JSON</span>
-          </Button>
-
-          {onOpenOnboarding && (
+          {/* Desktop Direct Tool Buttons */}
+          <div className="hidden lg:flex items-center gap-1">
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              onClick={onOpenOnboarding}
+              onClick={onOpenSearchPlayground}
               className="h-8 gap-1.5 text-xs text-zinc-600 dark:text-zinc-300"
-              title="Buka Panduan Publik & Quick Tour"
+              title="Buka Semantic Vector Search Playground"
             >
-              <HelpCircle className="h-3.5 w-3.5 text-indigo-500" />
-              <span className="hidden lg:inline">Panduan</span>
+              <Search className="h-3.5 w-3.5" />
+              <span>Playground Vektor</span>
             </Button>
-          )}
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onOpenAnalytics}
+              className="h-8 gap-1.5 text-xs text-zinc-600 dark:text-zinc-300"
+              title="Lihat Metrik & Kesehatan Knowledge Base"
+            >
+              <Activity className="h-3.5 w-3.5" />
+              <span>Metrik KB</span>
+            </Button>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleExportChat}
+              className="h-8 gap-1 text-xs text-zinc-600 dark:text-zinc-300"
+              title="Ekspor percakapan ke Markdown (.md)"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span>.MD</span>
+            </Button>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleExportJson}
+              className="h-8 gap-1 text-xs text-zinc-600 dark:text-zinc-300"
+              title="Ekspor percakapan ke JSON (.json)"
+            >
+              <FileJson className="h-3.5 w-3.5" />
+              <span>.JSON</span>
+            </Button>
+
+            {onOpenOnboarding && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={onOpenOnboarding}
+                className="h-8 gap-1.5 text-xs text-zinc-600 dark:text-zinc-300"
+                title="Buka Panduan Publik & Quick Tour"
+              >
+                <HelpCircle className="h-3.5 w-3.5 text-indigo-500" />
+                <span>Panduan</span>
+              </Button>
+            )}
+          </div>
+
+          {/* Mobile / Tablet Responsive "More Tools" Dropdown */}
+          <div className="relative lg:hidden">
+            <Button
+              type="button"
+              variant="ghost"
+              size="iconSm"
+              onClick={() => setShowMoreMenu((prev) => !prev)}
+              className="h-8 w-8 text-zinc-600 dark:text-zinc-300 cursor-pointer"
+              title="Alat Tambahan"
+            >
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+
+            {showMoreMenu && (
+              <div
+                className="absolute right-0 top-10 z-50 w-52 rounded-xl border border-zinc-200 bg-white p-1.5 shadow-xl dark:border-zinc-800 dark:bg-zinc-950 animate-in fade-in zoom-in-95 duration-150"
+                onClick={() => setShowMoreMenu(false)}
+              >
+                <button
+                  type="button"
+                  onClick={onOpenSearchPlayground}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900 cursor-pointer"
+                >
+                  <Search className="h-3.5 w-3.5 text-emerald-500" />
+                  <span>Playground Vektor</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={onOpenAnalytics}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900 cursor-pointer"
+                >
+                  <Activity className="h-3.5 w-3.5 text-emerald-500" />
+                  <span>Metrik & Kesehatan KB</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportChat}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900 cursor-pointer"
+                >
+                  <Download className="h-3.5 w-3.5 text-zinc-500" />
+                  <span>Ekspor Transkrip (.MD)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportJson}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900 cursor-pointer"
+                >
+                  <FileJson className="h-3.5 w-3.5 text-zinc-500" />
+                  <span>Ekspor Transkrip (.JSON)</span>
+                </button>
+                {onOpenOnboarding && (
+                  <button
+                    type="button"
+                    onClick={onOpenOnboarding}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900 cursor-pointer"
+                  >
+                    <HelpCircle className="h-3.5 w-3.5 text-indigo-500" />
+                    <span>Panduan Fitur</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
 
           <Button
             type="button"
@@ -597,7 +679,7 @@ export function ChatWorkspace({
       </header>
 
       {/* Main Conversation Stream */}
-      <div className="flex-1 overflow-y-auto px-4 pb-36 pt-6">
+      <div className="flex-1 overflow-y-auto px-3 sm:px-4 pb-36 pt-4 sm:pt-6">
         <div className="mx-auto max-w-3xl space-y-6">
           {/* Clean Minimalist Empty State Greeting */}
           {messages.length === 0 && (
@@ -677,7 +759,7 @@ export function ChatWorkspace({
               )}
 
               <div
-                className={`group relative max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-2xs ${
+                className={`group relative max-w-[95%] sm:max-w-[85%] rounded-2xl px-3.5 sm:px-4 py-3 text-sm shadow-2xs ${
                   msg.role === "user"
                     ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 font-medium"
                     : "border border-zinc-200/80 bg-white text-zinc-800 dark:border-zinc-800 dark:bg-zinc-900/70 dark:text-zinc-200"
@@ -810,7 +892,7 @@ export function ChatWorkspace({
       </div>
 
       {/* Floating Bottom Input Bar */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 pointer-events-none">
+      <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-4 pointer-events-none">
         <div className="mx-auto max-w-3xl pointer-events-auto">
           <div className="relative rounded-2xl border border-zinc-200/90 bg-white/95 p-2 shadow-xl backdrop-blur-xl dark:border-zinc-800/90 dark:bg-zinc-900/95">
             <textarea
@@ -822,29 +904,30 @@ export function ChatWorkspace({
               className="w-full resize-none bg-transparent px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none dark:text-zinc-100 dark:placeholder-zinc-500 min-h-[42px] max-h-32"
             />
 
-            <div className="flex items-center justify-between border-t border-zinc-100 pt-2 px-1 dark:border-zinc-800/70">
-              <div className="flex items-center gap-1.5">
+            <div className="flex items-center justify-between border-t border-zinc-100 pt-2 px-1 dark:border-zinc-800/70 gap-1">
+              <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={onOpenUpload}
-                  className="h-8 gap-1.5 px-2 text-xs text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                  className="h-8 gap-1.5 px-2 text-xs text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 shrink-0"
                 >
                   <Paperclip className="h-3.5 w-3.5" />
-                  <span>{t.documents.uploadTitle}</span>
+                  <span className="hidden sm:inline">{t.documents.uploadTitle}</span>
+                  <span className="sm:hidden">Upload</span>
                 </Button>
 
                 {documents && documents.length > 0 && (
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 min-w-0">
                     <span className="text-[11px] text-zinc-400 hidden md:inline">Scope:</span>
                     <select
                       value={scopedDocumentId || ""}
                       onChange={(e) => setScopedDocumentId(e.target.value || null)}
-                      className="rounded-lg border border-zinc-200 bg-white/90 px-2 py-1 text-[11px] text-zinc-700 transition hover:border-zinc-300 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 max-w-[170px] truncate cursor-pointer"
+                      className="rounded-lg border border-zinc-200 bg-white/90 px-1.5 sm:px-2 py-1 text-[11px] text-zinc-700 transition hover:border-zinc-300 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 max-w-[100px] sm:max-w-[170px] truncate cursor-pointer"
                       title="Filter retrieval scope"
                     >
-                      <option value="">All Documents ({documents.length})</option>
+                      <option value="">All Docs ({documents.length})</option>
                       {documents.map((doc) => (
                         <option key={doc.id} value={doc.id}>
                           {doc.title}
@@ -854,7 +937,7 @@ export function ChatWorkspace({
                   </div>
                 )}
 
-                <Badge variant="secondary" className="text-[10px] hidden sm:inline-flex">
+                <Badge variant="secondary" className="text-[10px] hidden md:inline-flex shrink-0">
                   {t.chat.groundingBadge}
                 </Badge>
               </div>

@@ -22,36 +22,36 @@ export function GroundednessModal({
   if (!isOpen || !report) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-4 backdrop-blur-xs">
       <div className="relative flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-zinc-100 p-5 dark:border-zinc-800">
+        <div className="flex items-center justify-between border-b border-zinc-100 p-4 sm:p-5 dark:border-zinc-800">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-400">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-400">
               <ShieldCheck className="h-4 w-4" />
             </span>
-            <div>
-              <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-50">
+            <div className="min-w-0">
+              <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-50 truncate">
                 {t.modals.groundedness.title}
               </h3>
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-zinc-500 line-clamp-1">
                 {t.modals.groundedness.desc}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="rounded-full p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+            className="rounded-full p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer shrink-0"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Top Score Summary Banner */}
-        <div className="grid grid-cols-3 gap-3 border-b border-zinc-100 bg-zinc-50/70 p-4 text-center dark:border-zinc-800 dark:bg-zinc-900/40">
-          <div className="rounded-xl border border-zinc-200/70 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
-            <span className="text-[11px] font-medium text-zinc-500">{t.modals.groundedness.scoreLabel}</span>
-            <div className="mt-1 font-mono text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 border-b border-zinc-100 bg-zinc-50/70 p-3 sm:p-4 text-center dark:border-zinc-800 dark:bg-zinc-900/40">
+          <div className="rounded-xl border border-zinc-200/70 bg-white p-2.5 sm:p-3 dark:border-zinc-800 dark:bg-zinc-900">
+            <span className="text-[10px] sm:text-[11px] font-medium text-zinc-500 truncate block">{t.modals.groundedness.scoreLabel}</span>
+            <div className="mt-1 font-mono text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400">
               {report.score}%
             </div>
             <span className="text-[10px] text-zinc-400">
