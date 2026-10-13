@@ -400,7 +400,7 @@ export const db = {
     const hasExternalKey = Boolean(
       process.env.OPENAI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY
     );
-    const effectiveThreshold = hasExternalKey ? threshold : Math.min(threshold, 0.15);
+    const effectiveThreshold = hasExternalKey ? threshold : Math.min(threshold, 0.05);
 
     const results: SearchResultChunk[] = [];
     for (const chunk of memoryStore.chunks.values()) {
@@ -417,6 +417,26 @@ export const db = {
           pageNumber: chunk.pageNumber,
           similarity: sim,
         });
+      }
+    }
+
+    // Adaptive fallback if strict threshold filtered everything out
+    if (results.length === 0 && memoryStore.chunks.size > 0) {
+      for (const chunk of memoryStore.chunks.values()) {
+        if (!targetDocIds.has(chunk.documentId) || !chunk.embedding) continue;
+        const sim = cosineSimilarity(queryEmbedding, chunk.embedding);
+        if (sim > 0) {
+          const doc = memoryStore.documents.get(chunk.documentId);
+          results.push({
+            id: chunk.id,
+            documentId: chunk.documentId,
+            documentTitle: doc?.title ?? "Dokumen Tanpa Judul",
+            content: chunk.content,
+            chunkIndex: chunk.chunkIndex,
+            pageNumber: chunk.pageNumber,
+            similarity: sim,
+          });
+        }
       }
     }
 

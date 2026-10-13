@@ -36,8 +36,11 @@ const STOP_WORDS = new Set([
 export function tokenizeLexical(text: string): string[] {
   if (!text) return [];
 
+  // Normalize delimiters like underscore and slash to spaces so filenames like SEC-POL-04_Kebijakan match
+  const normalized = text.toLowerCase().replace(/[_/]/g, " ");
+
   // Match sequences of word characters, including dashes or dots within words/numbers
-  const matches = text.toLowerCase().match(/[a-z0-9]+(?:[-_.][a-z0-9]+)*/g);
+  const matches = normalized.match(/[a-z0-9]+(?:[-.][a-z0-9]+)*/g);
   if (!matches) return [];
 
   return matches.filter((token) => token.length > 1 && !STOP_WORDS.has(token));
@@ -71,7 +74,8 @@ export function scoreBM25(
   let totalDocLength = 0;
 
   for (const chunk of chunks) {
-    const tokens = tokenizeLexical(chunk.content);
+    const fullText = chunk.documentTitle ? `${chunk.documentTitle} ${chunk.content}` : chunk.content;
+    const tokens = tokenizeLexical(fullText);
     docTokensMap.set(chunk.id, tokens);
     docLengthMap.set(chunk.id, tokens.length);
     totalDocLength += tokens.length;

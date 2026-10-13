@@ -50,6 +50,15 @@ export async function executeHybridSearch(
       threshold,
       enableReranking ? topK * 3 : topK
     );
+    // Adaptive fallback if strict threshold returns 0 results
+    if (denseResults.length === 0) {
+      denseResults = await db.searchSimilarChunks(
+        knowledgeBaseId,
+        queryEmbedding,
+        Math.min(threshold * 0.1, 0.05),
+        enableReranking ? topK * 3 : topK
+      );
+    }
     if (filterDocumentIds && filterDocumentIds.length > 0) {
       const allowedSet = new Set(filterDocumentIds);
       denseResults = denseResults.filter((r) => allowedSet.has(r.documentId));
