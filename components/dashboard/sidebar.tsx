@@ -41,6 +41,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useLanguage } from "@/lib/i18n/context";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
+import { CortexLogo } from "@/components/ui/logo";
 
 interface SidebarProps {
   documents: DocumentItem[];
@@ -236,9 +237,7 @@ export function Sidebar({
         <div className="border-b border-zinc-200/80 p-4 dark:border-zinc-800/80">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm shadow-emerald-500/20">
-                <Database className="h-5 w-5" />
-              </div>
+              <CortexLogo size={36} />
               {(!isCollapsed || isMobileOpen) && (
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
@@ -927,6 +926,14 @@ export function Sidebar({
           </div>
         )}
       </div>
+
+      {/* Footer Credit */}
+      {(!isCollapsed || isMobileOpen) && (
+        <div className="border-t border-zinc-200/60 dark:border-zinc-800/60 px-4 py-2.5 text-center text-[10px] text-zinc-500 dark:text-zinc-400 bg-zinc-100/60 dark:bg-zinc-900/40">
+          Designed and Developed by{" "}
+          <span className="font-semibold text-emerald-600 dark:text-emerald-400">Dandy Rahmat Zain</span>
+        </div>
+      )}
     </aside>
     </>
   );

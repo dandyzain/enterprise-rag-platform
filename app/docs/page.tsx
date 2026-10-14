@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { useTheme } from "@/components/providers/theme-provider";
 import { useLanguage } from "@/lib/i18n/context";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
+import { CortexLogo } from "@/components/ui/logo";
 
 interface CodeSnippet {
   curl: string;
@@ -227,10 +228,8 @@ export default function DocsPage() {
       <header className="sticky top-0 z-40 border-b border-zinc-800/80 bg-zinc-950/80 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-2.5 sm:gap-3">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-lg shadow-emerald-500/20">
-                <Database className="h-5 w-5" />
-              </div>
+            <Link href="/" className="flex items-center gap-2.5">
+              <CortexLogo size={34} />
               <span className="text-sm font-bold tracking-tight text-zinc-50">Cortex RAG</span>
             </Link>
             <span className="rounded-full border border-zinc-800 bg-zinc-900 px-2 py-0.5 text-[11px] font-mono text-zinc-400 hidden sm:inline-block">
@@ -657,6 +656,27 @@ export default function DocsPage() {
               )}
             </div>
           </section>
+
+          {/* Footer Credit */}
+          <footer className="mt-16 border-t border-zinc-800/80 pt-8 pb-12 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-500">
+            <div className="flex flex-col sm:flex-row items-center gap-2">
+              <p>© 2026 Cortex RAG Platform. Production-Ready Enterprise Architecture.</p>
+              <span className="hidden sm:inline text-zinc-700">•</span>
+              <p className="text-zinc-400 font-medium">
+                Designed and Developed by{" "}
+                <span className="text-emerald-400 font-semibold">Dandy Rahmat Zain</span>
+              </p>
+            </div>
+            <div className="flex items-center gap-4 text-zinc-400">
+              <Link href="/" className="hover:text-emerald-400 transition">
+                {t.common.back}
+              </Link>
+              <span>•</span>
+              <Link href="/dashboard" className="hover:text-emerald-400 transition">
+                {t.nav.dashboard}
+              </Link>
+            </div>
+          </footer>
         </main>
       </div>
     </div>

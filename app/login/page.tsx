@@ -22,6 +22,7 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { useTheme } from "@/components/providers/theme-provider";
 import { useLanguage } from "@/lib/i18n/context";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
+import { CortexLogo } from "@/components/ui/logo";
 import { UserRole } from "@/lib/auth/types";
 
 export default function LoginPage() {
@@ -97,9 +98,7 @@ export default function LoginPage() {
       {/* Brand Header */}
       <div className="relative z-10 mb-6 flex flex-col items-center text-center">
         <Link href="/" className="flex items-center gap-2.5 mb-2.5 group">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition">
-            <Database className="h-5 w-5" />
-          </div>
+          <CortexLogo size={42} />
           <span className="text-xl font-bold tracking-tight text-zinc-50">
             {t.common.brand}
           </span>
@@ -364,6 +363,14 @@ export default function LoginPage() {
           </Link>
         </div>
       </div>
+
+      {/* Footer Credit */}
+      <footer className="relative z-20 mt-6 text-center text-xs text-zinc-500">
+        <p>
+          Designed and Developed by{" "}
+          <span className="font-semibold text-emerald-400">Dandy Rahmat Zain</span>
+        </p>
+      </footer>
     </div>
   );
 }

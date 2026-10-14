@@ -26,6 +26,7 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { useTheme } from "@/components/providers/theme-provider";
 import { useLanguage } from "@/lib/i18n/context";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
+import { CortexLogo } from "@/components/ui/logo";
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -109,9 +110,7 @@ export default function HomePage() {
       <header className="relative z-10 border-b border-zinc-800/80 bg-zinc-950/80 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-2.5 sm:gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-lg shadow-emerald-500/20">
-              <Database className="h-5 w-5" />
-            </div>
+            <CortexLogo size={36} />
             <div className="min-w-0">
               <span className="text-sm font-bold tracking-tight text-zinc-50">
                 {t.common.brand}
@@ -526,8 +525,15 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="relative z-10 border-t border-zinc-800 bg-zinc-950 py-8 text-center text-xs text-zinc-500">
-        <div className="mx-auto max-w-7xl px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© 2026 Cortex RAG Platform. Production-Ready Enterprise Architecture.</p>
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row items-center gap-2">
+            <p>© 2026 Cortex RAG Platform. Production-Ready Enterprise Architecture.</p>
+            <span className="hidden sm:inline text-zinc-700">•</span>
+            <p className="text-zinc-400 font-medium">
+              Designed and Developed by{" "}
+              <span className="text-emerald-400 font-semibold">Dandy Rahmat Zain</span>
+            </p>
+          </div>
           <div className="flex items-center gap-4 text-zinc-400">
             <Link href="/docs" className="hover:text-emerald-400 transition">
               {t.nav.docs}
