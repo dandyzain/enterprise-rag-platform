@@ -1,0 +1,42 @@
+image: node:22-alpine
+
+stages:
+  - test
+  - build
+
+variables:
+  PNPM_HOME: "/pnpm"
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - .pnpm-store
+    - node_modules/
+    - .next/cache/
+
+before_script:
+  - corepack enable
+  - corepack prepare pnpm@12.10.1 --activate
+  - pnpm config set store-dir .pnpm-store
+
+test:
+  stage: test
+  script:
+    - pnpm install --frozen-lockfile
+    - pnpm prisma generate
+    - node scripts/verify-responsiveness.mjs
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+build:
+  stage: build
+  script:
+    - pnpm install --frozen-lockfile
+    - pnpm run build
+  artifacts:
+    paths:
+      - .next/
+    expire_in: 7 days
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
