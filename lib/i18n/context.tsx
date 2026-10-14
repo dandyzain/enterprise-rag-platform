@@ -12,6 +12,7 @@ const dictionaries = {
 
 const LanguageContext = React.createContext<LanguageContextType>({
   locale: "en",
+  language: "en",
   setLocale: () => {},
   toggleLocale: () => {},
   isEnglish: true,
@@ -73,6 +74,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     <LanguageContext.Provider
       value={{
         locale,
+        language: locale,
         setLocale,
         toggleLocale,
         isEnglish,

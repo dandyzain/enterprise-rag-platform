@@ -487,166 +487,166 @@ export function ChatWorkspace({
       <header className="flex h-14 items-center justify-between border-b border-zinc-200/80 px-3 sm:px-6 backdrop-blur-md dark:border-zinc-800/80">
         <div className="flex items-center gap-2 min-w-0">
           {onToggleMobileSidebar && (
-            <button
-              type="button"
-              onClick={onToggleMobileSidebar}
-              className="md:hidden flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-850 cursor-pointer"
-              title="Menu Navigasi"
-            >
-              <Menu className="h-4 w-4" />
-            </button>
-          )}
-          <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 truncate max-w-[130px] sm:max-w-none">
-            Semantic Workspace
-          </h2>
-          <Badge variant="secondary" className="text-[10px] ml-1 hidden xl:inline-flex">
-            Threshold: {ragSettings.similarityThreshold} • Top-{ragSettings.topK}
-          </Badge>
-        </div>
+              <button
+                type="button"
+                onClick={onToggleMobileSidebar}
+                className="md:hidden flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-850 cursor-pointer"
+                title={t.chat.navMenu}
+              >
+                <Menu className="h-4 w-4" />
+              </button>
+            )}
+            <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 truncate max-w-[130px] sm:max-w-none">
+              {t.chat.semanticWorkspace}
+            </h2>
+            <Badge variant="secondary" className="text-[10px] ml-1 hidden xl:inline-flex">
+              {t.chat.thresholdLabel}: {ragSettings.similarityThreshold} • {t.chat.topKLabel}-{ragSettings.topK}
+            </Badge>
+          </div>
 
-        {/* Header Actions: New Chat, Playground, Metrics, Export, Settings */}
-        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onNewChat}
-            className="h-8 gap-1.5 px-2 sm:px-3 text-xs text-zinc-600 dark:text-zinc-300"
-            title="Mulai sesi percakapan baru"
-          >
-            <PlusCircle className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span className="hidden sm:inline">Sesi Baru</span>
-          </Button>
-
-          {/* Desktop Direct Tool Buttons */}
-          <div className="hidden lg:flex items-center gap-1">
+          {/* Header Actions: New Chat, Playground, Metrics, Export, Settings */}
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              onClick={onOpenSearchPlayground}
-              className="h-8 gap-1.5 text-xs text-zinc-600 dark:text-zinc-300"
-              title="Buka Semantic Vector Search Playground"
+              onClick={onNewChat}
+              className="h-8 gap-1.5 px-2 sm:px-3 text-xs text-zinc-600 dark:text-zinc-300 cursor-pointer"
+              title={t.chat.newSessionTitle}
             >
-              <Search className="h-3.5 w-3.5" />
-              <span>Playground Vektor</span>
+              <PlusCircle className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span className="hidden sm:inline">{t.chat.newSession}</span>
             </Button>
 
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={onOpenAnalytics}
-              className="h-8 gap-1.5 text-xs text-zinc-600 dark:text-zinc-300"
-              title="Lihat Metrik & Kesehatan Knowledge Base"
-            >
-              <Activity className="h-3.5 w-3.5" />
-              <span>Metrik KB</span>
-            </Button>
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={handleExportChat}
-              className="h-8 gap-1 text-xs text-zinc-600 dark:text-zinc-300"
-              title="Ekspor percakapan ke Markdown (.md)"
-            >
-              <Download className="h-3.5 w-3.5" />
-              <span>.MD</span>
-            </Button>
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={handleExportJson}
-              className="h-8 gap-1 text-xs text-zinc-600 dark:text-zinc-300"
-              title="Ekspor percakapan ke JSON (.json)"
-            >
-              <FileJson className="h-3.5 w-3.5" />
-              <span>.JSON</span>
-            </Button>
-
-            {onOpenOnboarding && (
+            {/* Desktop Direct Tool Buttons */}
+            <div className="hidden lg:flex items-center gap-1">
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={onOpenOnboarding}
-                className="h-8 gap-1.5 text-xs text-zinc-600 dark:text-zinc-300"
-                title="Buka Panduan Publik & Quick Tour"
+                onClick={onOpenSearchPlayground}
+                className="h-8 gap-1.5 text-xs text-zinc-600 dark:text-zinc-300 cursor-pointer"
+                title={t.chat.vectorPlaygroundTitle}
               >
-                <HelpCircle className="h-3.5 w-3.5 text-indigo-500" />
-                <span>Panduan</span>
+                <Search className="h-3.5 w-3.5" />
+                <span>{t.chat.vectorPlayground}</span>
               </Button>
-            )}
-          </div>
 
-          {/* Mobile / Tablet Responsive "More Tools" Dropdown */}
-          <div className="relative lg:hidden">
-            <Button
-              type="button"
-              variant="ghost"
-              size="iconSm"
-              onClick={() => setShowMoreMenu((prev) => !prev)}
-              className="h-8 w-8 text-zinc-600 dark:text-zinc-300 cursor-pointer"
-              title="Alat Tambahan"
-            >
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-
-            {showMoreMenu && (
-              <div
-                className="absolute right-0 top-10 z-50 w-52 rounded-xl border border-zinc-200 bg-white p-1.5 shadow-xl dark:border-zinc-800 dark:bg-zinc-950 animate-in fade-in zoom-in-95 duration-150"
-                onClick={() => setShowMoreMenu(false)}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={onOpenAnalytics}
+                className="h-8 gap-1.5 text-xs text-zinc-600 dark:text-zinc-300 cursor-pointer"
+                title={t.chat.kbMetricsTitle}
               >
-                <button
+                <Activity className="h-3.5 w-3.5" />
+                <span>{t.chat.kbMetrics}</span>
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleExportChat}
+                className="h-8 gap-1 text-xs text-zinc-600 dark:text-zinc-300 cursor-pointer"
+                title={t.chat.exportMdTitle}
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span>{t.chat.exportMd}</span>
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleExportJson}
+                className="h-8 gap-1 text-xs text-zinc-600 dark:text-zinc-300 cursor-pointer"
+                title={t.chat.exportJsonTitle}
+              >
+                <FileJson className="h-3.5 w-3.5" />
+                <span>{t.chat.exportJson}</span>
+              </Button>
+
+              {onOpenOnboarding && (
+                <Button
                   type="button"
-                  onClick={onOpenSearchPlayground}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900 cursor-pointer"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onOpenOnboarding}
+                  className="h-8 gap-1.5 text-xs text-zinc-600 dark:text-zinc-300 cursor-pointer"
+                  title={t.chat.guideTitle}
                 >
-                  <Search className="h-3.5 w-3.5 text-emerald-500" />
-                  <span>Playground Vektor</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={onOpenAnalytics}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900 cursor-pointer"
+                  <HelpCircle className="h-3.5 w-3.5 text-indigo-500" />
+                  <span>{t.chat.guide}</span>
+                </Button>
+              )}
+            </div>
+
+            {/* Mobile / Tablet Responsive "More Tools" Dropdown */}
+            <div className="relative lg:hidden">
+              <Button
+                type="button"
+                variant="ghost"
+                size="iconSm"
+                onClick={() => setShowMoreMenu((prev) => !prev)}
+                className="h-8 w-8 text-zinc-600 dark:text-zinc-300 cursor-pointer"
+                title={t.chat.moreToolsTitle}
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+
+              {showMoreMenu && (
+                <div
+                  className="absolute right-0 top-10 z-50 w-52 rounded-xl border border-zinc-200 bg-white p-1.5 shadow-xl dark:border-zinc-800 dark:bg-zinc-950 animate-in fade-in zoom-in-95 duration-150"
+                  onClick={() => setShowMoreMenu(false)}
                 >
-                  <Activity className="h-3.5 w-3.5 text-emerald-500" />
-                  <span>Metrik & Kesehatan KB</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleExportChat}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900 cursor-pointer"
-                >
-                  <Download className="h-3.5 w-3.5 text-zinc-500" />
-                  <span>Ekspor Transkrip (.MD)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleExportJson}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900 cursor-pointer"
-                >
-                  <FileJson className="h-3.5 w-3.5 text-zinc-500" />
-                  <span>Ekspor Transkrip (.JSON)</span>
-                </button>
-                {onOpenOnboarding && (
                   <button
                     type="button"
-                    onClick={onOpenOnboarding}
+                    onClick={onOpenSearchPlayground}
                     className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900 cursor-pointer"
                   >
-                    <HelpCircle className="h-3.5 w-3.5 text-indigo-500" />
-                    <span>Panduan Fitur</span>
+                    <Search className="h-3.5 w-3.5 text-emerald-500" />
+                    <span>{t.chat.vectorPlayground}</span>
                   </button>
-                )}
-              </div>
-            )}
-          </div>
+                  <button
+                    type="button"
+                    onClick={onOpenAnalytics}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900 cursor-pointer"
+                  >
+                    <Activity className="h-3.5 w-3.5 text-emerald-500" />
+                    <span>{t.chat.kbMetrics}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportChat}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900 cursor-pointer"
+                  >
+                    <Download className="h-3.5 w-3.5 text-zinc-500" />
+                    <span>{t.chat.exportMd}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportJson}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900 cursor-pointer"
+                  >
+                    <FileJson className="h-3.5 w-3.5 text-zinc-500" />
+                    <span>{t.chat.exportJson}</span>
+                  </button>
+                  {onOpenOnboarding && (
+                    <button
+                      type="button"
+                      onClick={onOpenOnboarding}
+                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900 cursor-pointer"
+                    >
+                      <HelpCircle className="h-3.5 w-3.5 text-indigo-500" />
+                      <span>{t.chat.guide}</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
 
           <Button
             type="button"

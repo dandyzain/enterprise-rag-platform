@@ -2,6 +2,7 @@ export type Locale = "en" | "id";
 
 export interface LanguageContextType {
   locale: Locale;
+  language: Locale;
   setLocale: (locale: Locale) => void;
   toggleLocale: () => void;
   isEnglish: boolean;

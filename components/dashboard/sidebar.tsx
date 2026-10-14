@@ -224,7 +224,7 @@ export function Sidebar({
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
           className="hidden md:flex absolute -right-3.5 top-6 z-20 h-7 w-7 items-center justify-center rounded-full border border-zinc-200 bg-white shadow-xs transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800 cursor-pointer"
-          title={isCollapsed ? "Buka Sidebar" : "Ciutkan Sidebar"}
+          title={isCollapsed ? t.sidebar.expandSidebar : t.sidebar.collapseSidebar}
         >
           {isCollapsed ? (
             <ChevronRight className="h-3.5 w-3.5 text-zinc-600 dark:text-zinc-300" />
@@ -258,7 +258,7 @@ export function Sidebar({
               type="button"
               onClick={onCloseMobile}
               className="md:hidden flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 dark:border-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-900 cursor-pointer"
-              title="Tutup Menu"
+              title={t.common.close}
             >
               <X className="h-4 w-4" />
             </button>
@@ -269,7 +269,7 @@ export function Sidebar({
           <div className="mt-3.5">
             <div className="flex items-center justify-between">
               <label className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
-                Knowledge Base
+                {t.sidebar.knowledgeBaseLabel}
               </label>
               <div className="flex items-center gap-2">
                 <button
@@ -277,33 +277,33 @@ export function Sidebar({
                   onClick={() => {
                     const url = `${window.location.origin}/dashboard?kb=${encodeURIComponent(selectedKbId)}`;
                     void navigator.clipboard.writeText(url);
-                    toast.success("Tautan akses Knowledge Base disalin ke papan klip!");
+                    toast.success(t.common.copied);
                   }}
-                  className="flex items-center gap-1 text-[11px] font-medium text-zinc-500 hover:text-emerald-600 dark:hover:text-emerald-400"
-                  title="Salin Tautan Akses Publik Knowledge Base"
+                  className="flex items-center gap-1 text-[11px] font-medium text-zinc-500 hover:text-emerald-600 dark:hover:text-emerald-400 cursor-pointer"
+                  title={t.sidebar.shareKb}
                 >
                   <Share2 className="h-3 w-3" />
-                  <span>Bagikan</span>
+                  <span>{t.sidebar.shareKb}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() =>
                     window.open(`/api/knowledge-bases/${selectedKbId}/export`, "_blank")
                   }
-                  className="flex items-center gap-1 text-[11px] font-medium text-zinc-500 hover:text-emerald-600 dark:hover:text-emerald-400"
-                  title="Unduh Backup JSON Knowledge Base"
+                  className="flex items-center gap-1 text-[11px] font-medium text-zinc-500 hover:text-emerald-600 dark:hover:text-emerald-400 cursor-pointer"
+                  title={t.sidebar.backupTitle}
                 >
                   <Download className="h-3 w-3" />
-                  <span>Backup</span>
+                  <span>{t.sidebar.backupKb}</span>
                 </button>
                 <button
                   type="button"
                   onClick={onOpenCreateKb}
-                  className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
-                  title="Buat Knowledge Base baru"
+                  className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 cursor-pointer"
+                  title={t.sidebar.newKbTitle}
                 >
                   <Plus className="h-3 w-3" />
-                  <span>Baru</span>
+                  <span>{t.sidebar.newKb}</span>
                 </button>
               </div>
             </div>
@@ -347,7 +347,7 @@ export function Sidebar({
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploading}
             className="w-full"
-            title="Unggah Dokumen PDF/Teks"
+            title={t.sidebar.uploadDocBtn}
           >
             <UploadCloud className="h-4 w-4" />
           </Button>
@@ -366,10 +366,10 @@ export function Sidebar({
               )}
             </div>
             <p className="mt-2 text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-              {isUploading ? uploadProgressStatus : "Unggah Dokumen Knowledge"}
+              {isUploading ? (uploadProgressStatus || t.sidebar.indexingProgress) : t.sidebar.uploadDocBtn}
             </p>
             <p className="text-[11px] text-zinc-500">
-              {isUploading ? "Memproses embedding..." : "Format PDF, TXT, MD hingga 25MB"}
+              {isUploading ? t.sidebar.indexingProgress : t.sidebar.uploadFormatSubtext}
             </p>
           </div>
         )}
@@ -410,12 +410,12 @@ export function Sidebar({
             {!isCollapsed && (
               <div className="mb-2 flex items-center justify-between px-1">
                 <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
-                  Daftar Terindeks
+                  {t.sidebar.indexedList}
                 </span>
                 <button
                   onClick={onRefreshDocs}
-                  className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
-                  title="Perbarui daftar dokumen"
+                  className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
+                  title={t.sidebar.refreshTooltip}
                 >
                   <RefreshCw className={`h-3 w-3 ${isLoading ? "animate-spin" : ""}`} />
                 </button>
@@ -427,7 +427,7 @@ export function Sidebar({
                 <Search className="absolute left-3 top-2 h-3 w-3 text-zinc-400" />
                 <input
                   type="text"
-                  placeholder="Filter judul dokumen..."
+                  placeholder={t.sidebar.searchDocsPlaceholder}
                   value={docSearchQuery}
                   onChange={(e) => setDocSearchQuery(e.target.value)}
                   className="w-full rounded-md border border-zinc-200 bg-white py-1 pl-7 pr-2 text-[11px] text-zinc-800 placeholder-zinc-400 focus:border-emerald-500 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-200"
@@ -445,8 +445,8 @@ export function Sidebar({
               !isCollapsed && (
                 <div className="rounded-lg border border-dashed border-zinc-200 p-4 text-center dark:border-zinc-800">
                   <FileText className="mx-auto h-6 w-6 text-zinc-400" />
-                  <p className="mt-1 text-xs text-zinc-500">Belum ada dokumen</p>
-                  <p className="text-[10px] text-zinc-400">Unggah berkas atau muat contoh enterprise</p>
+                  <p className="mt-1 text-xs text-zinc-500">{t.sidebar.noDocsYet}</p>
+                  <p className="text-[10px] text-zinc-400">{t.sidebar.noDocsSubtext}</p>
                   <button
                     type="button"
                     onClick={handleSeedDemoDocs}
@@ -454,14 +454,14 @@ export function Sidebar({
                     className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950/80 transition cursor-pointer"
                   >
                     <Sparkles className="h-3 w-3 text-emerald-500" />
-                    <span>{isSeeding ? "Mengindeks..." : "Muat 3 Dokumen Demo"}</span>
+                    <span>{isSeeding ? t.sidebar.indexingDemo : t.sidebar.seedDemoDocs}</span>
                   </button>
                 </div>
               )
             ) : filteredDocuments.length === 0 ? (
               !isCollapsed && (
                 <div className="py-4 text-center text-xs text-zinc-400">
-                  Tidak ditemukan dokumen yang cocok dengan "{docSearchQuery}".
+                  {t.sidebar.noDocsFound} "{docSearchQuery}".
                 </div>
               )
             ) : (
@@ -495,7 +495,7 @@ export function Sidebar({
                         type="button"
                         onClick={() => onInspectDocument(doc)}
                         className="mt-0.5 shrink-0 text-zinc-500 group-hover:text-emerald-500 cursor-pointer"
-                        title="Klik untuk melihat chunks"
+                        title={t.sidebar.viewChunksTooltip}
                       >
                         <FileText className="h-4 w-4" />
                       </button>
@@ -556,7 +556,7 @@ export function Sidebar({
                   className="w-full justify-start gap-2 text-xs border-dashed"
                 >
                   <Plus className="h-3.5 w-3.5 text-emerald-500" />
-                  <span>Mulai Sesi Chat Baru</span>
+                  <span>{t.sidebar.startNewChat}</span>
                 </Button>
               </div>
             )}
@@ -566,7 +566,7 @@ export function Sidebar({
                 <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-zinc-400" />
                 <input
                   type="text"
-                  placeholder="Filter sesi chat..."
+                  placeholder={t.sidebar.searchChatsPlaceholder}
                   value={sessionSearchQuery}
                   onChange={(e) => setSessionSearchQuery(e.target.value)}
                   className="w-full rounded-md border border-zinc-200 bg-white py-1 pl-7 pr-2 text-[11px] text-zinc-800 placeholder-zinc-400 focus:border-emerald-500 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-200"
@@ -578,13 +578,13 @@ export function Sidebar({
               !isCollapsed && (
                 <div className="rounded-lg border border-dashed border-zinc-200 p-4 text-center dark:border-zinc-800">
                   <MessageSquare className="mx-auto h-5 w-5 text-zinc-400" />
-                  <p className="mt-1 text-xs text-zinc-500">Belum ada riwayat sesi</p>
+                  <p className="mt-1 text-xs text-zinc-500">{t.sidebar.noChatHistory}</p>
                 </div>
               )
             ) : filteredSessions.length === 0 ? (
               !isCollapsed && (
                 <div className="py-4 text-center text-xs text-zinc-400">
-                  Tidak ditemukan sesi yang cocok dengan "{sessionSearchQuery}".
+                  {t.sidebar.noChatsFound} "{sessionSearchQuery}".
                 </div>
               )
             ) : (
@@ -704,7 +704,7 @@ export function Sidebar({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 font-semibold text-[11px] text-zinc-800 dark:text-zinc-200">
                 <Shield className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span>Paket {userPlan}</span>
+                <span>{t.sidebar.planPrefix} {userPlan}</span>
               </div>
               <span className="font-mono text-[10px] text-zinc-500">
                 {planLimits.queryPerHour} q/jam
@@ -712,9 +712,9 @@ export function Sidebar({
             </div>
 
             <div className="mt-2 flex items-center justify-between text-[10px] text-zinc-500">
-              <span>Kuota Dokumen</span>
+              <span>{t.sidebar.docQuotaLabel}</span>
               <span className="font-mono font-medium text-zinc-700 dark:text-zinc-300">
-                {documents.length} / {planLimits.maxDocs} file
+                {documents.length} / {planLimits.maxDocs} {t.sidebar.documentsCount}
               </span>
             </div>
             <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
@@ -736,7 +736,7 @@ export function Sidebar({
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-1.5 text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
                 <HardDrive className="h-3.5 w-3.5 text-emerald-500" />
-                Kapasitas Vektor
+                {t.sidebar.vectorCapacityLabel}
               </span>
               <span className="text-[10px] font-mono text-zinc-500">
                 {totalChunks} / {chunkLimit.toLocaleString()}
@@ -753,7 +753,7 @@ export function Sidebar({
 
             <div className="mt-2 flex items-center justify-between text-[10px] text-zinc-500">
               <span>HNSW 1536 dims</span>
-              <span>{formatBytes(totalBytes)} terpakai</span>
+              <span>{formatBytes(totalBytes)} {t.sidebar.usedSuffix}</span>
             </div>
           </div>
         </div>
@@ -883,14 +883,14 @@ export function Sidebar({
                   <>
                     <div className="flex items-center gap-1.5">
                       <span className="truncate text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-                        Belum Masuk
+                        {t.sidebar.notSignedIn}
                       </span>
                       <Badge variant="secondary" className="text-[9px] px-1 py-0 shrink-0">
-                        GUEST
+                        {t.sidebar.guestUser}
                       </Badge>
                     </div>
                     <p className="truncate text-[10px] text-zinc-400">
-                      Klik untuk Masuk
+                      {t.sidebar.clickToSignIn}
                     </p>
                   </>
                 )}
@@ -902,7 +902,7 @@ export function Sidebar({
               type="button"
               onClick={() => setTheme(isDark ? "light" : "dark")}
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer shadow-xs"
-              title={isDark ? "Ganti ke Tema Terang (Light)" : "Ganti ke Tema Gelap (Dark)"}
+              title={isDark ? t.common.lightTheme : t.common.darkTheme}
             >
               {isDark ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-zinc-700" />}
             </button>
