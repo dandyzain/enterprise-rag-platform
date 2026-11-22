@@ -13,11 +13,16 @@ import {
   Eye,
   EyeOff,
   Globe,
+  Moon,
+  Sun,
+  Monitor,
+  SunMoon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { SearchMode } from "@/lib/rag/types";
 import { useLanguage, Locale } from "@/lib/i18n/context";
+import { useTheme } from "@/components/providers/theme-provider";
 
 export interface RagSettings {
   similarityThreshold: number;
@@ -43,6 +48,7 @@ export function SettingsModal({
   onSave,
 }: SettingsModalProps) {
   const { locale, setLocale, t } = useLanguage();
+  const { preference: themePreference, setTheme } = useTheme();
   const [localSettings, setLocalSettings] = React.useState<RagSettings>(settings);
   const [showKeys, setShowKeys] = React.useState(false);
 
@@ -137,6 +143,62 @@ export function SettingsModal({
                   Terjemahan resmi Indonesia
                 </div>
               </button>
+            </div>
+          </div>
+
+          {/* Appearance / Theme Preference Section */}
+          <div className="rounded-xl border border-zinc-200/90 bg-zinc-50/50 p-3.5 dark:border-zinc-800 dark:bg-zinc-900/40">
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-400">
+                <SunMoon className="h-3.5 w-3.5" aria-hidden="true" />
+              </span>
+              <div>
+                <div id="theme-preference-label" className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+                  {t.modals.settings.themeLabel}
+                </div>
+                <div className="text-xs text-zinc-600 dark:text-zinc-400">
+                  {t.modals.settings.themeDesc}
+                </div>
+              </div>
+            </div>
+
+            <div
+              role="radiogroup"
+              aria-labelledby="theme-preference-label"
+              className="mt-3 grid grid-cols-3 gap-2"
+            >
+              {(
+                [
+                  { value: "dark", label: t.modals.settings.themeDark, hint: t.modals.settings.themeDarkDesc, Icon: Moon },
+                  { value: "light", label: t.modals.settings.themeLight, hint: t.modals.settings.themeLightDesc, Icon: Sun },
+                  { value: "system", label: t.modals.settings.themeSystem, hint: t.modals.settings.themeSystemDesc, Icon: Monitor },
+                ] as const
+              ).map(({ value, label, hint, Icon }) => {
+                const selected = themePreference === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => setTheme(value)}
+                    className={`rounded-xl border p-2.5 text-left transition cursor-pointer ${
+                      selected
+                        ? "border-emerald-500 bg-emerald-50/20 text-emerald-950 dark:text-emerald-300 ring-1 ring-emerald-500"
+                        : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+                      <span className="flex items-center gap-1.5">
+                        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                        {label}
+                      </span>
+                      {selected && <Check className="h-3.5 w-3.5 text-emerald-500" aria-hidden="true" />}
+                    </div>
+                    <div className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">{hint}</div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 

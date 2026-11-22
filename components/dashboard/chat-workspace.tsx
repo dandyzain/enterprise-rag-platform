@@ -67,24 +67,6 @@ interface ChatWorkspaceProps {
   onToggleMobileSidebar?: () => void;
 }
 
-const PROMPT_STARTERS = [
-  {
-    title: "Ringkasan Eksekutif Dokumen",
-    prompt: "Tolong ringkas poin utama dan tujuan strategis dari dokumen yang telah diindeks.",
-    icon: Layers,
-  },
-  {
-    title: "Temuan Kunci & Rekomendasi",
-    prompt: "Apa saja metrik teknis, temuan terpenting, atau rekomendasi utama dalam dokumen?",
-    icon: Zap,
-  },
-  {
-    title: "Batasan & Analisis Risiko",
-    prompt: "Apakah ada batasan implementasi, mitigasi risiko, atau prasyarat operasional yang disebutkan?",
-    icon: ShieldCheck,
-  },
-];
-
 export function ChatWorkspace({
   knowledgeBaseId,
   activeSessionId,
@@ -490,7 +472,7 @@ export function ChatWorkspace({
               <button
                 type="button"
                 onClick={onToggleMobileSidebar}
-                className="md:hidden flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-850 cursor-pointer"
+                className="md:hidden flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer"
                 title={t.chat.navMenu}
               >
                 <Menu className="h-4 w-4" />

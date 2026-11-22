@@ -1,62 +1,317 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ==========================================================================
+   Cortex "Signal Console" design tokens
+   --------------------------------------------------------------------------
+   Raw values live on :root (light) and .dark. Tailwind utilities are mapped
+   through `@theme inline` below, so components use semantic classes such as
+   `bg-card`, `text-muted-foreground`, `border-border`, `text-signal-text`
+   instead of hard-coded palette colours + `dark:` variants.
+
+   Contrast rules (verified by `pnpm check:tokens`):
+   - every *-foreground / *-text token  >= 4.5:1 on the surfaces it sits on
+   - `input`, `ring`                    >= 3:1   against background & card
+   ========================================================================== */
+
+:root {
+  /* Surfaces */
+  --background: #fafafa;
+  --foreground: #09090b;
+  --card: #ffffff;
+  --card-foreground: #09090b;
+  --popover: #ffffff;
+  --popover-foreground: #09090b;
+  --sidebar: #f4f4f5;
+  --overlay: rgb(9 9 11 / 0.45);
+
+  /* Neutral roles */
+  --secondary: #f4f4f5;
+  --secondary-foreground: #18181b;
+  --muted: #f4f4f5;
+  --muted-foreground: #52525b;
+  --subtle-foreground: #66666f;
+  --accent: #efeff1;
+  --accent-foreground: #18181b;
+
+  /* Lines */
+  --border: #e4e4e7;
+  --border-strong: #d4d4d8;
+  --input: #8a8a92;
+  --ring: #059669;
+
+  /* Brand / primary action (white text needs >= 4.5:1 -> emerald-700) */
+  --primary: #047857;
+  --primary-hover: #065f46;
+  --primary-foreground: #ffffff;
+
+  /* Signal = verified / grounded */
+  --signal: #047857;
+  --signal-foreground: #ffffff;
+  --signal-soft: rgb(5 150 105 / 0.09);
+  --signal-border: rgb(5 150 105 / 0.3);
+  --signal-text: #047857;
+
+  /* Status */
+  --warning: #d97706;
+  --warning-soft: rgb(217 119 6 / 0.1);
+  --warning-border: rgb(217 119 6 / 0.32);
+  --warning-text: #b45309;
+
+  --danger: #e11d48;
+  --danger-foreground: #ffffff;
+  --danger-soft: rgb(225 29 72 / 0.08);
+  --danger-border: rgb(225 29 72 / 0.3);
+  --danger-text: #be123c;
+
+  --info: #4f46e5;
+  --info-soft: rgb(79 70 229 / 0.08);
+  --info-border: rgb(79 70 229 / 0.28);
+  --info-text: #4338ca;
+
+  /* Data visualisation */
+  --chart-1: #059669;
+  --chart-2: #4f46e5;
+  --chart-3: #d97706;
+  --chart-4: #0284c7;
+  --chart-5: #e11d48;
+
+  /* Elevation */
+  --elevation-1: 0 1px 2px rgb(9 9 11 / 0.06);
+  --elevation-2: 0 1px 2px rgb(9 9 11 / 0.05), 0 8px 24px -8px rgb(9 9 11 / 0.12);
+  --elevation-3: 0 2px 4px rgb(9 9 11 / 0.05), 0 24px 48px -16px rgb(9 9 11 / 0.22);
+  --glow-signal: 0 0 0 1px rgb(5 150 105 / 0.25), 0 8px 28px -6px rgb(5 150 105 / 0.35);
+
+  /* Motion (mirrored in lib/motion.ts for framer-motion) */
+  --duration-instant: 100ms;
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --duration-slow: 300ms;
+  --duration-deliberate: 500ms;
+
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: #09090b;
+  --foreground: #f4f4f5;
+  --card: #111113;
+  --card-foreground: #f4f4f5;
+  --popover: #141417;
+  --popover-foreground: #f4f4f5;
+  --sidebar: #0c0c0e;
+  --overlay: rgb(0 0 0 / 0.62);
+
+  --secondary: #1c1c20;
+  --secondary-foreground: #f4f4f5;
+  --muted: #18181b;
+  --muted-foreground: #a1a1aa;
+  --subtle-foreground: #8b8b95;
+  --accent: #1f1f24;
+  --accent-foreground: #f4f4f5;
+
+  --border: #232328;
+  --border-strong: #303037;
+  --input: #64646e;
+  --ring: #34d399;
+
+  --primary: #10b981;
+  --primary-hover: #34d399;
+  --primary-foreground: #04120c;
+
+  --signal: #10b981;
+  --signal-foreground: #04120c;
+  --signal-soft: rgb(16 185 129 / 0.12);
+  --signal-border: rgb(16 185 129 / 0.32);
+  --signal-text: #34d399;
+
+  --warning: #f59e0b;
+  --warning-soft: rgb(245 158 11 / 0.12);
+  --warning-border: rgb(245 158 11 / 0.32);
+  --warning-text: #fbbf24;
+
+  --danger: #e11d48;
+  --danger-foreground: #ffffff;
+  --danger-soft: rgb(244 63 94 / 0.12);
+  --danger-border: rgb(244 63 94 / 0.32);
+  --danger-text: #fb7185;
+
+  --info: #818cf8;
+  --info-soft: rgb(129 140 248 / 0.12);
+  --info-border: rgb(129 140 248 / 0.32);
+  --info-text: #a5b4fc;
+
+  --chart-1: #10b981;
+  --chart-2: #818cf8;
+  --chart-3: #f59e0b;
+  --chart-4: #38bdf8;
+  --chart-5: #fb7185;
+
+  --elevation-1: inset 0 1px 0 rgb(255 255 255 / 0.03), 0 1px 2px rgb(0 0 0 / 0.4);
+  --elevation-2: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 1px 2px rgb(0 0 0 / 0.4),
+    0 8px 24px -6px rgb(0 0 0 / 0.55);
+  --elevation-3: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 2px 4px rgb(0 0 0 / 0.45),
+    0 24px 48px -12px rgb(0 0 0 / 0.7);
+  --glow-signal: 0 0 0 1px rgb(16 185 129 / 0.3), 0 8px 32px -6px rgb(16 185 129 / 0.35);
+}
+
+/* Static theme values (do not vary by colour scheme) */
+@theme {
+  --breakpoint-xs: 30rem;
+
+  /* Fluid display type for marketing surfaces */
+  --text-display: clamp(2.25rem, 1.3rem + 3.8vw, 4.25rem);
+  --text-display--line-height: 1.04;
+  --text-display--letter-spacing: -0.035em;
+  --text-display--font-weight: 650;
+  --text-title: clamp(1.5rem, 1.2rem + 1.2vw, 2.25rem);
+  --text-title--line-height: 1.15;
+  --text-title--letter-spacing: -0.022em;
+  --text-title--font-weight: 650;
+
+  /* Semantic radii (additive; Tailwind defaults stay untouched) */
+  --radius-control: 0.5rem;
+  --radius-card: 0.875rem;
+  --radius-panel: 1.125rem;
+
+  /* Easing curves */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-quick: cubic-bezier(0.4, 0, 1, 1);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  --animate-caret: caret-blink 1s steps(2, start) infinite;
+  --animate-shimmer-text: shimmer-text 2.2s linear infinite;
+  --animate-pulse-soft: pulse-soft 2.4s var(--ease-standard) infinite;
+
+  @keyframes caret-blink {
+    to {
+      visibility: hidden;
+    }
+  }
+  @keyframes shimmer-text {
+    from {
+      background-position: 200% 0;
+    }
+    to {
+      background-position: -200% 0;
+    }
+  }
+  @keyframes pulse-soft {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.55;
+    }
+  }
+}
+
+/* Theme-dependent values -> utilities (bg-card, text-signal-text, shadow-elevation-2, ...) */
+@theme inline {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-serif: var(--font-evidence-serif), ui-serif, Georgia, serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-overlay: var(--overlay);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-subtle-foreground: var(--subtle-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-signal: var(--signal);
+  --color-signal-foreground: var(--signal-foreground);
+  --color-signal-soft: var(--signal-soft);
+  --color-signal-border: var(--signal-border);
+  --color-signal-text: var(--signal-text);
+
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-border: var(--warning-border);
+  --color-warning-text: var(--warning-text);
+
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-border: var(--danger-border);
+  --color-danger-text: var(--danger-text);
+  --color-destructive: var(--danger);
+  --color-destructive-foreground: var(--danger-foreground);
+
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-info-border: var(--info-border);
+  --color-info-text: var(--info-text);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --shadow-elevation-1: var(--elevation-1);
+  --shadow-elevation-2: var(--elevation-2);
+  --shadow-elevation-3: var(--elevation-3);
+  --shadow-glow-signal: var(--glow-signal);
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
 @layer base {
-  :root {
-    --background: #ffffff;
-    --foreground: #09090b;
-    --card: #ffffff;
-    --card-foreground: #09090b;
-    --popover: #ffffff;
-    --popover-foreground: #09090b;
-    --primary: #059669; /* Emerald 600 */
-    --primary-foreground: #ffffff;
-    --secondary: #f4f4f5;
-    --secondary-foreground: #18181b;
-    --muted: #f4f4f5;
-    --muted-foreground: #71717a;
-    --accent: #f4f4f5;
-    --accent-foreground: #18181b;
-    --destructive: #ef4444;
-    --destructive-foreground: #fafafa;
-    --border: #e4e4e7;
-    --input: #e4e4e7;
-    --ring: #059669;
-    --radius: 0.5rem;
+  html {
+    color-scheme: light;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
-  .dark {
-    --background: #09090b;
-    --foreground: #fafafa;
-    --card: #121215;
-    --card-foreground: #fafafa;
-    --popover: #121215;
-    --popover-foreground: #fafafa;
-    --primary: #10b981; /* Emerald 500 */
-    --primary-foreground: #09090b;
-    --secondary: #1e1e24;
-    --secondary-foreground: #fafafa;
-    --muted: #1e1e24;
-    --muted-foreground: #a1a1aa;
-    --accent: #1e1e24;
-    --accent-foreground: #fafafa;
-    --destructive: #7f1d1d;
-    --destructive-foreground: #fafafa;
-    --border: #27272a;
-    --input: #27272a;
-    --ring: #10b981;
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    overflow-x: clip;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Visible, consistent keyboard focus everywhere (components may refine it) */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--signal-soft);
+    color: inherit;
   }
 }
 
-body {
-  background-color: var(--background);
-  color: var(--foreground);
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-  overflow-x: hidden;
-}
-
-/* Custom Sleek Scrollbar */
+/* Sleek scrollbars, tuned per theme */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -67,25 +322,32 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(161, 161, 170, 0.25);
+  background: color-mix(in oklab, var(--foreground) 16%, transparent);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(161, 161, 170, 0.45);
+  background: color-mix(in oklab, var(--foreground) 30%, transparent);
 }
 
-/* Pulsing typing cursor */
+/* ==========================================================================
+   Legacy animation helpers (still referenced by existing components)
+   ========================================================================== */
+
 @keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 .animate-cursor-blink {
   animation: blink 0.9s infinite ease-in-out;
 }
 
-/* Shimmer animation for skeleton loaders */
 @keyframes shimmer {
   100% {
     transform: translateX(100%);
@@ -99,18 +361,86 @@ body {
 
 .shimmer-mask::after {
   position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
+  inset: 0;
   transform: translateX(-100%);
   background-image: linear-gradient(
     90deg,
-    rgba(255, 255, 255, 0) 0,
-    rgba(255, 255, 255, 0.08) 20%,
-    rgba(255, 255, 255, 0.18) 60%,
-    rgba(255, 255, 255, 0)
+    transparent 0,
+    color-mix(in oklab, var(--foreground) 5%, transparent) 20%,
+    color-mix(in oklab, var(--foreground) 10%, transparent) 60%,
+    transparent
   );
   animation: shimmer 1.8s infinite;
-  content: '';
+  content: "";
+}
+
+/* Shimmering text for live status labels ("Composing answer…") */
+.text-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--muted-foreground) 0%,
+    var(--muted-foreground) 40%,
+    var(--foreground) 50%,
+    var(--muted-foreground) 60%,
+    var(--muted-foreground) 100%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: var(--animate-shimmer-text);
+}
+
+/* ==========================================================================
+   View transitions
+   ========================================================================== */
+
+/* Clicks during a transition reach the live page instead of the overlay */
+::view-transition {
+  pointer-events: none;
+}
+
+/* Theme switch: a quick, soft cross-fade of the whole document */
+html[data-theme-switching]::view-transition-old(root),
+html[data-theme-switching]::view-transition-new(root) {
+  animation-duration: var(--duration-slow);
+  animation-timing-function: var(--ease-standard);
+}
+
+/* Freeze element-level colour transitions while the theme flips so the new
+   snapshot is captured in its final state (no staggered colour fades). */
+html[data-theme-switching] *,
+html[data-theme-switching] *::before,
+html[data-theme-switching] *::after {
+  transition: none !important;
+}
+
+/* ==========================================================================
+   Reduced motion
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *:not(.animate-spin),
+  *:not(.animate-spin)::before,
+  *:not(.animate-spin)::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+
+  .text-shimmer {
+    animation: none;
+    background-image: none;
+    color: var(--muted-foreground);
+  }
 }
