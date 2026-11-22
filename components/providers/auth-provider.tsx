@@ -16,29 +16,46 @@ interface AuthContextValue {
 
 const AuthContext = React.createContext<AuthContextValue | null>(null);
 
+/** The signed-in user according to the server, or null if signed out or unreachable. */
+async function fetchSessionUser(): Promise<UserSession | null> {
+  try {
+    const res = await fetch("/api/auth/me");
+    const json: { success?: boolean; user?: UserSession | null } = await res.json();
+    return json.success && json.user ? json.user : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Leave for the login page with a full page load. Deliberately not
+ * router.push: a hard navigation discards all client-side state from the
+ * signed-out session (Next.js docs, "Preserving UI state" > "State and
+ * authentication"). The rule below exists to catch accidental full reloads.
+ */
+function reloadToLogin() {
+  if (typeof window === "undefined") return;
+  // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- intentional hard navigation on logout, see above
+  window.location.href = "/login";
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = React.useState<UserSession | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
 
-  const fetchCurrentUser = React.useCallback(async () => {
-    try {
-      const res = await fetch("/api/auth/me");
-      const json = await res.json();
-      if (json.success && json.user) {
-        setUser(json.user);
-      } else {
-        setUser(null);
-      }
-    } catch {
-      setUser(null);
-    } finally {
-      setIsLoading(false);
-    }
+  const applySessionUser = React.useCallback((sessionUser: UserSession | null) => {
+    setUser(sessionUser);
+    setIsLoading(false);
   }, []);
 
+  const fetchCurrentUser = React.useCallback(async () => {
+    applySessionUser(await fetchSessionUser());
+  }, [applySessionUser]);
+
+  // Load the session once on mount; state is set when the request resolves.
   React.useEffect(() => {
-    void fetchCurrentUser();
-  }, [fetchCurrentUser]);
+    void fetchSessionUser().then(applySessionUser);
+  }, [applySessionUser]);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
@@ -118,17 +135,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await fetch("/api/auth/logout", { method: "POST" });
       setUser(null);
       toast.info("Anda telah keluar dari sesi.");
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
-      }
     } catch {
       setUser(null);
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
-      }
     } finally {
       setIsLoading(false);
     }
+    reloadToLogin();
   };
 
   return (

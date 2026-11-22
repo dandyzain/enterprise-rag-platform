@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
+/** Shape of an exported Knowledge Base backup, as accepted by the importer. */
+type KnowledgeBaseBackup = Parameters<typeof db.importKnowledgeBaseData>[0];
+
 export async function POST(req: NextRequest) {
   try {
-    let payload: any = null;
+    let payload: Partial<KnowledgeBaseBackup> | null = null;
 
     const contentType = req.headers.get("content-type") || "";
 
@@ -39,12 +42,13 @@ export async function POST(req: NextRequest) {
       message: `Knowledge Base "${result.knowledgeBase.name}" berhasil dipulihkan (${result.totalDocuments} dokumen, ${result.totalChunks} chunks).`,
       data: result,
     });
-  } catch (error: any) {
-    console.error("[API Knowledge Base Import] POST error:", error);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error("[API Knowledge Base Import] POST error:", err);
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Gagal memulihkan data Knowledge Base dari file backup.",
+        error: err.message || "Gagal memulihkan data Knowledge Base dari file backup.",
       },
       { status: 500 }
     );

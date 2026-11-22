@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { UserSession, UserRole, UserPlan } from "./types";
+import { UserSession } from "./types";
 import crypto from "crypto";
 
 export const AUTH_COOKIE_NAME = "cortex_auth_session";

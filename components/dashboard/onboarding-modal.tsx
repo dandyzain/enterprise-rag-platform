@@ -10,7 +10,6 @@ import {
   X,
   FileText,
   CheckCircle2,
-  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/lib/i18n/context";

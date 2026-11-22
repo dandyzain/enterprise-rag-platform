@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
 
     attachSessionCookie(res, newUser);
     return res;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[API Auth Register] error:", error);
     return NextResponse.json(
       { success: false, error: "Gagal mendaftarkan akun baru." },

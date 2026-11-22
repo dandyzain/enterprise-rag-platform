@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { X, Search, Sparkles, BookOpen, Clock, Layers } from "lucide-react";
+import { X, Search, BookOpen, Clock, Layers } from "lucide-react";
 import { SearchResultChunk } from "@/lib/rag/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

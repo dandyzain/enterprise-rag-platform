@@ -21,7 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { SearchMode } from "@/lib/rag/types";
-import { useLanguage, Locale } from "@/lib/i18n/context";
+import { useLanguage } from "@/lib/i18n/context";
 import { useTheme } from "@/components/providers/theme-provider";
 
 export interface RagSettings {
@@ -52,10 +52,13 @@ export function SettingsModal({
   const [localSettings, setLocalSettings] = React.useState<RagSettings>(settings);
   const [showKeys, setShowKeys] = React.useState(false);
 
-  // Sync local state when incoming settings prop changes
-  React.useEffect(() => {
+  // Sync local state when incoming settings prop changes. Done while rendering,
+  // per React's "adjusting state when a prop changes".
+  const [syncedSettings, setSyncedSettings] = React.useState(settings);
+  if (settings !== syncedSettings) {
+    setSyncedSettings(settings);
     setLocalSettings(settings);
-  }, [settings]);
+  }
 
   if (!isOpen) return null;
 

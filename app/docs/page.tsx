@@ -18,7 +18,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useTheme } from "@/components/providers/theme-provider";
-import { useLanguage } from "@/lib/i18n/context";
+import { useLanguage, type Locale } from "@/lib/i18n/context";
+import type { SearchMode } from "@/lib/rag/types";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { CortexLogo } from "@/components/ui/logo";
 
@@ -158,6 +159,12 @@ print(res.json())`,
   },
 };
 
+function defaultConsoleQuery(language: Locale): string {
+  return language === "en"
+    ? "Data retention policy SEC-POL-04"
+    : "Kebijakan retensi dokumen SEC-POL-04";
+}
+
 export default function DocsPage() {
   const { isDark, toggleTheme } = useTheme();
   const { t, language } = useLanguage();
@@ -165,24 +172,23 @@ export default function DocsPage() {
   const [copiedKey, setCopiedKey] = React.useState<string | null>(null);
 
   // Live Console Tester State
-  const [consoleQuery, setConsoleQuery] = React.useState(
-    language === "en" ? "Data retention policy SEC-POL-04" : "Kebijakan retensi dokumen SEC-POL-04"
-  );
-  const [consoleMode, setConsoleMode] = React.useState<"hybrid" | "semantic" | "keyword">("hybrid");
+  const [consoleQuery, setConsoleQuery] = React.useState(defaultConsoleQuery(language));
+  const [consoleMode, setConsoleMode] = React.useState<SearchMode>("hybrid");
   const [consoleTopK, setConsoleTopK] = React.useState(3);
   const [consoleReranking, setConsoleReranking] = React.useState(true);
   const [consoleLoading, setConsoleLoading] = React.useState(false);
-  const [consoleResponse, setConsoleResponse] = React.useState<any | null>(null);
+  // Raw JSON body returned by the endpoint, shown verbatim in the console.
+  const [consoleResponse, setConsoleResponse] = React.useState<Record<string, unknown> | null>(null);
   const [consoleLatency, setConsoleLatency] = React.useState<number | null>(null);
   const [consoleStatus, setConsoleStatus] = React.useState<number | null>(null);
 
-  React.useEffect(() => {
-    setConsoleQuery(
-      language === "en"
-        ? "Data retention policy SEC-POL-04"
-        : "Kebijakan retensi dokumen SEC-POL-04"
-    );
-  }, [language]);
+  // Reset the sample query when the UI language changes. Done while rendering,
+  // per React's "adjusting state when a prop changes".
+  const [consoleQueryLanguage, setConsoleQueryLanguage] = React.useState(language);
+  if (language !== consoleQueryLanguage) {
+    setConsoleQueryLanguage(language);
+    setConsoleQuery(defaultConsoleQuery(language));
+  }
 
   const handleRunConsoleTest = async () => {
     try {
@@ -618,7 +624,7 @@ export default function DocsPage() {
                   </label>
                   <select
                     value={consoleMode}
-                    onChange={(e) => setConsoleMode(e.target.value as any)}
+                    onChange={(e) => setConsoleMode(e.target.value as SearchMode)}
                     className="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-3 py-2 text-xs text-zinc-900 dark:text-zinc-100 focus:border-emerald-500 focus:outline-none cursor-pointer"
                   >
                     <option value="hybrid">Hybrid (RRF Dense+BM25)</option>

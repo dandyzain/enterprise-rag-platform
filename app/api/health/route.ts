@@ -49,13 +49,14 @@ export async function GET() {
         totalChunks,
       },
     });
-  } catch (error: any) {
-    console.error("[API Health] error:", error);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error("[API Health] error:", err);
     return NextResponse.json(
       {
         success: false,
         status: "DEGRADED",
-        error: error.message || "Gagal memeriksa kesehatan sistem.",
+        error: err.message || "Gagal memeriksa kesehatan sistem.",
       },
       { status: 500 }
     );

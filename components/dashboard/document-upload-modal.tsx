@@ -25,7 +25,6 @@ export function DocumentUploadModal({
   const [selectedFiles, setSelectedFiles] = React.useState<File[]>([]);
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [pipelineStep, setPipelineStep] = React.useState<string | null>(null);
-  const [currentFileIndex, setCurrentFileIndex] = React.useState<number>(0);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   if (!isOpen) return null;
@@ -64,7 +63,6 @@ export function DocumentUploadModal({
 
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
-        setCurrentFileIndex(i + 1);
         setPipelineStep(`Indexing [${i + 1}/${selectedFiles.length}]: ${file.name}...`);
 
         const formData = new FormData();
@@ -97,7 +95,6 @@ export function DocumentUploadModal({
       setIsProcessing(false);
       setPipelineStep(null);
       setSelectedFiles([]);
-      setCurrentFileIndex(0);
     }
   };
 

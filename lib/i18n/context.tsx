@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { LOCALE_STORAGE_KEY } from "@/lib/theme";
 import { Locale, LanguageContextType } from "./types";
 import { enDictionary } from "./dictionaries/en";
 import { idDictionary } from "./dictionaries/id";
@@ -10,9 +11,12 @@ const dictionaries = {
   id: idDictionary,
 };
 
+// English is the default language
+const DEFAULT_LOCALE: Locale = "en";
+
 const LanguageContext = React.createContext<LanguageContextType>({
-  locale: "en",
-  language: "en",
+  locale: DEFAULT_LOCALE,
+  language: DEFAULT_LOCALE,
   setLocale: () => {},
   toggleLocale: () => {},
   isEnglish: true,
@@ -20,51 +24,61 @@ const LanguageContext = React.createContext<LanguageContextType>({
   t: enDictionary,
 });
 
+/* --------------------------------------------------------------------------
+ * External store: the persisted locale. As in ThemeProvider,
+ * useSyncExternalStore renders the default on the server and during
+ * hydration, then the stored value, without a mount effect. The inline init
+ * script (lib/theme.ts) has already set <html lang> from storage before paint.
+ * ------------------------------------------------------------------------ */
+
+const listeners = new Set<() => void>();
+/** Read from storage on first client access, then owned by `setLocale`. */
+let currentLocale: Locale | null = null;
+
+function readStoredLocale(): Locale {
+  try {
+    const stored = localStorage.getItem(LOCALE_STORAGE_KEY);
+    return stored === "id" || stored === "en" ? stored : DEFAULT_LOCALE;
+  } catch {
+    return DEFAULT_LOCALE;
+  }
+}
+
+function getSnapshot(): Locale {
+  if (currentLocale === null) {
+    currentLocale = readStoredLocale();
+  }
+  return currentLocale;
+}
+
+function getServerSnapshot(): Locale {
+  return DEFAULT_LOCALE;
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function setLocale(newLocale: Locale) {
+  currentLocale = newLocale;
+  try {
+    localStorage.setItem(LOCALE_STORAGE_KEY, newLocale);
+    document.documentElement.lang = newLocale;
+  } catch {
+    // ignore — currentLocale keeps the session consistent
+  }
+  listeners.forEach((listener) => listener());
+}
+
+function toggleLocale() {
+  setLocale(getSnapshot() === "en" ? "id" : "en");
+}
+
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  // English is the default language
-  const [locale, setLocaleState] = React.useState<Locale>("en");
-  const [mounted, setMounted] = React.useState(false);
-
-  // Sync with localStorage on client mount
-  React.useEffect(() => {
-    setMounted(true);
-    try {
-      const stored = localStorage.getItem("app_locale") as Locale | null;
-      if (stored === "id" || stored === "en") {
-        setLocaleState(stored);
-        document.documentElement.lang = stored;
-      } else {
-        // Default to English
-        setLocaleState("en");
-        document.documentElement.lang = "en";
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  const setLocale = React.useCallback((newLocale: Locale) => {
-    setLocaleState(newLocale);
-    try {
-      localStorage.setItem("app_locale", newLocale);
-      document.documentElement.lang = newLocale;
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  const toggleLocale = React.useCallback(() => {
-    setLocaleState((prev) => {
-      const next: Locale = prev === "en" ? "id" : "en";
-      try {
-        localStorage.setItem("app_locale", next);
-        document.documentElement.lang = next;
-      } catch {
-        // ignore
-      }
-      return next;
-    });
-  }, []);
+  const locale = React.useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   const t = dictionaries[locale] || enDictionary;
   const isEnglish = locale === "en";

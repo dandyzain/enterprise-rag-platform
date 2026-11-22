@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
       success: true,
       user,
     });
-  } catch (error: any) {
+  } catch {
     return NextResponse.json(
       { success: false, error: "Gagal memverifikasi sesi." },
       { status: 500 }

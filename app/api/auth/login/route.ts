@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
 
     attachSessionCookie(res, user);
     return res;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[API Auth Login] error:", error);
     return NextResponse.json(
       { success: false, error: "Gagal memproses otentikasi login." },

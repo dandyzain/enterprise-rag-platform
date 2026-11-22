@@ -23,7 +23,6 @@ import {
   Check,
   Search,
   Activity,
-  Filter,
   ThumbsUp,
   ThumbsDown,
   HelpCircle,
@@ -50,6 +49,28 @@ export interface MessageUI {
   groundedness?: GroundednessReport | null;
   feedback?: "like" | "dislike";
 }
+
+/**
+ * The slice of the Web Speech API used for voice input. TypeScript's DOM lib
+ * ships the result types but not SpeechRecognition itself (Chrome and Safari
+ * expose it as webkitSpeechRecognition).
+ */
+interface SpeechRecognitionInstance {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onstart: (() => void) | null;
+  onresult: ((event: { results: SpeechRecognitionResultList }) => void) | null;
+  onerror: ((event: { error: string }) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+}
+
+type WindowWithSpeechRecognition = Window & {
+  SpeechRecognition?: new () => SpeechRecognitionInstance;
+  webkitSpeechRecognition?: new () => SpeechRecognitionInstance;
+};
 
 interface ChatWorkspaceProps {
   knowledgeBaseId: string;
@@ -85,22 +106,32 @@ export function ChatWorkspace({
   const { isDark, toggleTheme } = useTheme();
   const { t } = useLanguage();
   const [messages, setMessages] = React.useState<MessageUI[]>([]);
-  const [input, setInput] = React.useState("");
+  const [input, setInput] = React.useState(initialPrompt || "");
+  // Copy a newly chosen sample prompt (from onboarding) into the input. Done
+  // while rendering, per React's "adjusting state when a prop changes".
+  const [appliedInitialPrompt, setAppliedInitialPrompt] = React.useState(initialPrompt);
+  if (initialPrompt !== appliedInitialPrompt) {
+    setAppliedInitialPrompt(initialPrompt);
+    if (initialPrompt) {
+      setInput(initialPrompt);
+    }
+  }
   const [isLoading, setIsLoading] = React.useState(false);
   const [copiedMsgId, setCopiedMsgId] = React.useState<string | null>(null);
   const [selectedGroundedness, setSelectedGroundedness] = React.useState<GroundednessReport | null>(null);
   const [scopedDocumentId, setScopedDocumentId] = React.useState<string | null>(null);
   const [isListening, setIsListening] = React.useState(false);
   const [showMoreMenu, setShowMoreMenu] = React.useState(false);
-  const recognitionRef = React.useRef<any>(null);
+  const recognitionRef = React.useRef<SpeechRecognitionInstance | null>(null);
   const messagesEndRef = React.useRef<HTMLDivElement | null>(null);
   const streamAccumulatorRef = React.useRef<string>("");
 
   const handleToggleVoice = () => {
     if (typeof window === "undefined") return;
 
+    const speechWindow = window as WindowWithSpeechRecognition;
     const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
       toast.info("Browser Anda tidak mendukung Web Speech Recognition. Silakan ketik pertanyaan secara manual.");
@@ -124,7 +155,7 @@ export function ChatWorkspace({
         toast.info("Mendengarkan suara... Silakan sampaikan pertanyaan.");
       };
 
-      recognition.onresult = (event: any) => {
+      recognition.onresult = (event) => {
         const transcript = event.results[0]?.[0]?.transcript;
         if (transcript) {
           setInput((prev) => (prev ? `${prev} ${transcript}` : transcript));
@@ -132,7 +163,7 @@ export function ChatWorkspace({
         }
       };
 
-      recognition.onerror = (event: any) => {
+      recognition.onerror = (event) => {
         console.warn("Speech recognition error:", event.error);
         setIsListening(false);
         if (event.error !== "no-speech") {
@@ -152,12 +183,6 @@ export function ChatWorkspace({
       toast.error("Gagal mengakses mikrofon peramban.");
     }
   };
-
-  React.useEffect(() => {
-    if (initialPrompt) {
-      setInput(initialPrompt);
-    }
-  }, [initialPrompt]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -348,10 +373,10 @@ export function ChatWorkspace({
       // Evaluate groundedness on stream completion if not pre-computed in header
       const finalText = streamAccumulatorRef.current;
       if (!extractedGroundedness && extractedCitations.length > 0) {
-        extractedGroundedness = evaluateGroundedness(finalText, extractedCitations, []);
+        const evaluatedGroundedness = evaluateGroundedness(finalText, extractedCitations, []);
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === assistantMsgId ? { ...m, groundedness: extractedGroundedness } : m
+            m.id === assistantMsgId ? { ...m, groundedness: evaluatedGroundedness } : m
           )
         );
       }

@@ -5,7 +5,6 @@ import { DocumentItem, KnowledgeBaseItem, ChatSessionItem } from "@/lib/rag/type
 import { formatBytes } from "@/lib/utils";
 import { useTheme } from "@/components/providers/theme-provider";
 import {
-  Database,
   FileText,
   UploadCloud,
   ChevronLeft,
@@ -24,12 +23,9 @@ import {
   X,
   LogOut,
   User,
-  UserCheck,
-  ShieldCheck,
   ChevronUp,
   Share2,
   Shield,
-  Zap,
   Search,
   Sparkles,
 } from "lucide-react";
@@ -461,7 +457,7 @@ export function Sidebar({
             ) : filteredDocuments.length === 0 ? (
               !isCollapsed && (
                 <div className="py-4 text-center text-xs text-zinc-400">
-                  {t.sidebar.noDocsFound} "{docSearchQuery}".
+                  {t.sidebar.noDocsFound} &quot;{docSearchQuery}&quot;.
                 </div>
               )
             ) : (
@@ -584,7 +580,7 @@ export function Sidebar({
             ) : filteredSessions.length === 0 ? (
               !isCollapsed && (
                 <div className="py-4 text-center text-xs text-zinc-400">
-                  {t.sidebar.noChatsFound} "{sessionSearchQuery}".
+                  {t.sidebar.noChatsFound} &quot;{sessionSearchQuery}&quot;.
                 </div>
               )
             ) : (

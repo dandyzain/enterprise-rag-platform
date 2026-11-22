@@ -19,8 +19,64 @@ import {
 } from "@/lib/rag/types";
 import { toast } from "sonner";
 
+const DEFAULT_KB_ID = "default-kb-1";
+const BYOK_SETTINGS_KEY = "enterprise_rag_byok_settings";
+const ONBOARDING_DISMISSED_KEY = "enterprise_rag_onboarding_dismissed";
+
+/* --------------------------------------------------------------------------
+ * Browser-only inputs, read through useSyncExternalStore: the server render
+ * and hydration see the server snapshot, and the client value arrives in the
+ * render right after hydration, without a mount effect. Neither source is
+ * observed for later changes, matching the previous read-once behaviour.
+ * ------------------------------------------------------------------------ */
+
+function subscribeToNothing() {
+  return () => {};
+}
+
+/** `?kb=` from a shared link (see the Sidebar's share button). */
+function getSharedKbIdSnapshot(): string | null {
+  return new URLSearchParams(window.location.search).get("kb");
+}
+
+function getServerSharedKbId(): string | null {
+  return null;
+}
+
+function getIsHydratedSnapshot() {
+  return true;
+}
+
+function getServerIsHydrated() {
+  return false;
+}
+
+/** BYOK settings saved by this page and the dismissal flag set by OnboardingModal. */
+function readStoredPreferences(): {
+  savedSettings: Partial<RagSettings> | null;
+  showOnboarding: boolean;
+} {
+  try {
+    const savedSettings = localStorage.getItem(BYOK_SETTINGS_KEY);
+    return {
+      savedSettings: savedSettings ? (JSON.parse(savedSettings) as Partial<RagSettings>) : null,
+      showOnboarding: !localStorage.getItem(ONBOARDING_DISMISSED_KEY),
+    };
+  } catch (e) {
+    console.warn("Failed to load settings or onboarding preference:", e);
+    return { savedSettings: null, showOnboarding: false };
+  }
+}
+
 export default function DashboardPage() {
-  const [selectedKbId, setSelectedKbId] = React.useState("default-kb-1");
+  // The shared `?kb=` link decides the knowledge base until the user picks one.
+  const sharedKbId = React.useSyncExternalStore(
+    subscribeToNothing,
+    getSharedKbIdSnapshot,
+    getServerSharedKbId
+  );
+  const [chosenKbId, setChosenKbId] = React.useState<string | null>(null);
+  const selectedKbId = chosenKbId ?? (sharedKbId || DEFAULT_KB_ID);
   const [documents, setDocuments] = React.useState<DocumentItem[]>([]);
   const [knowledgeBases, setKnowledgeBases] = React.useState<KnowledgeBaseItem[]>([]);
   const [chatSessions, setChatSessions] = React.useState<ChatSessionItem[]>([]);
@@ -49,34 +105,28 @@ export default function DashboardPage() {
     enableReranking: true,
   });
 
-  // Load URL query param for shared Knowledge Base and persistent BYOK settings from localStorage
-  React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const urlKb = params.get("kb");
-      if (urlKb) {
-        setSelectedKbId(urlKb);
-      }
-
-      try {
-        const savedSettings = localStorage.getItem("enterprise_rag_byok_settings");
-        if (savedSettings) {
-          const parsed = JSON.parse(savedSettings);
-          setRagSettings((prev) => ({
-            ...prev,
-            ...parsed,
-          }));
-        }
-
-        const isDismissed = localStorage.getItem("enterprise_rag_onboarding_dismissed");
-        if (!isDismissed) {
-          setIsOnboardingOpen(true);
-        }
-      } catch (e) {
-        console.warn("Failed to load settings or onboarding preference:", e);
-      }
+  // Restore persisted BYOK settings and the onboarding prompt once per mount,
+  // in the first render after hydration (React's "adjusting state when a prop
+  // changes", with hydration as the change).
+  const isHydrated = React.useSyncExternalStore(
+    subscribeToNothing,
+    getIsHydratedSnapshot,
+    getServerIsHydrated
+  );
+  const [restoredPreferences, setRestoredPreferences] = React.useState(false);
+  if (isHydrated && !restoredPreferences) {
+    setRestoredPreferences(true);
+    const { savedSettings, showOnboarding } = readStoredPreferences();
+    if (savedSettings) {
+      setRagSettings((prev) => ({
+        ...prev,
+        ...savedSettings,
+      }));
     }
-  }, []);
+    if (showOnboarding) {
+      setIsOnboardingOpen(true);
+    }
+  }
 
   const loadDocuments = React.useCallback(async (kbId: string) => {
     try {
@@ -247,7 +297,7 @@ export default function DashboardPage() {
         knowledgeBases={knowledgeBases}
         selectedKbId={selectedKbId}
         onSelectKb={(id) => {
-          setSelectedKbId(id);
+          setChosenKbId(id);
           setActiveSessionId(null);
           setIsMobileSidebarOpen(false);
         }}
@@ -315,7 +365,7 @@ export default function DashboardPage() {
         isOpen={isCreateKbOpen}
         onClose={() => setIsCreateKbOpen(false)}
         onCreated={(newKbId) => {
-          setSelectedKbId(newKbId);
+          setChosenKbId(newKbId);
           handleRefresh();
         }}
       />
@@ -337,7 +387,7 @@ export default function DashboardPage() {
           setRagSettings(newSettings);
           if (typeof window !== "undefined") {
             try {
-              localStorage.setItem("enterprise_rag_byok_settings", JSON.stringify(newSettings));
+              localStorage.setItem(BYOK_SETTINGS_KEY, JSON.stringify(newSettings));
             } catch (e) {
               console.warn("Failed to save BYOK settings:", e);
             }

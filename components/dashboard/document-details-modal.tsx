@@ -43,12 +43,22 @@ export function DocumentDetailsModal({
   const [searchQuery, setSearchQuery] = React.useState("");
   const [copiedChunkId, setCopiedChunkId] = React.useState<string | null>(null);
 
+  // Reset the spinner and chunk filter whenever a document is (re)opened. Done
+  // while rendering, per React's "adjusting state when a prop changes"; the
+  // effect below only fetches.
+  const [openedFor, setOpenedFor] = React.useState({ document, isOpen });
+  if (openedFor.document !== document || openedFor.isOpen !== isOpen) {
+    setOpenedFor({ document, isOpen });
+    if (document && isOpen) {
+      setIsLoadingChunks(true);
+      setSearchQuery("");
+    }
+  }
+
   React.useEffect(() => {
     if (!document || !isOpen) return;
 
     let ignore = false;
-    setIsLoadingChunks(true);
-    setSearchQuery("");
 
     void (async () => {
       try {

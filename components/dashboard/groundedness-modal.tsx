@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { X, ShieldCheck, CheckCircle2, AlertTriangle, FileText, Check } from "lucide-react";
+import { X, ShieldCheck, CheckCircle2, AlertTriangle, Check } from "lucide-react";
 import { GroundednessReport } from "@/lib/rag/types";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/lib/i18n/context";
