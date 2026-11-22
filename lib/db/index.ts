@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 import {
   DocumentItem,
   DocumentChunkItem,
@@ -17,9 +18,13 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
+// Prisma 7 requires a driver adapter. The pg pool connects lazily, so building
+// the client without DATABASE_URL is safe: every query below is guarded by
+// `process.env.DATABASE_URL` and falls back to the in-memory store.
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
+    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   });
 
