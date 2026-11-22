@@ -392,6 +392,325 @@
 }
 
 /* ==========================================================================
+   Marketing motion (landing page)
+   Transform/opacity-only loops; all are frozen by the reduced-motion rule.
+   ========================================================================== */
+
+/* Hover spotlight + glowing border that follow the cursor (mouse only) */
+.spotlight {
+  position: relative;
+  isolation: isolate;
+}
+
+.spotlight::before,
+.spotlight::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--duration-slow) var(--ease-standard);
+}
+
+.spotlight::before {
+  z-index: -1;
+  background: radial-gradient(
+    420px circle at var(--mx, 50%) var(--my, 0%),
+    color-mix(in oklab, var(--signal) 13%, transparent),
+    transparent 60%
+  );
+}
+
+.spotlight::after {
+  padding: 1px;
+  background: radial-gradient(
+    260px circle at var(--mx, 50%) var(--my, 0%),
+    color-mix(in oklab, var(--signal) 70%, transparent),
+    transparent 70%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .spotlight:hover::before,
+  .spotlight:hover::after {
+    opacity: 1;
+  }
+}
+
+/* Light sweep across primary CTAs on hover */
+.btn-shine {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.btn-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.38) 50%, transparent 70%);
+  transform: translateX(-120%);
+  transition: transform 750ms var(--ease-out-expo);
+}
+
+@media (hover: hover) {
+  .btn-shine:hover::after {
+    transform: translateX(120%);
+  }
+}
+
+/* Animated gradient text */
+.text-gradient-signal {
+  background-image: linear-gradient(
+    100deg,
+    var(--signal-text) 0%,
+    #2dd4bf 30%,
+    var(--signal-text) 55%,
+    #5eead4 80%,
+    var(--signal-text) 100%
+  );
+  background-size: 220% auto;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: gradient-pan 7s linear infinite;
+}
+
+html:not(.dark) .text-gradient-signal {
+  background-image: linear-gradient(100deg, #047857 0%, #0d9488 35%, #047857 60%, #0f766e 85%, #047857 100%);
+}
+
+@keyframes gradient-pan {
+  to {
+    background-position: -220% center;
+  }
+}
+
+/* Hero backdrop: grid, drifting aurora, rising particles, scan line */
+.hero-grid {
+  background-image:
+    linear-gradient(to right, color-mix(in oklab, var(--foreground) 7%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--foreground) 7%, transparent) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(ellipse 75% 65% at 50% 0%, #000 25%, transparent 75%);
+  mask-image: radial-gradient(ellipse 75% 65% at 50% 0%, #000 25%, transparent 75%);
+}
+
+.aurora {
+  position: absolute;
+  border-radius: 9999px;
+  will-change: transform;
+}
+
+.aurora-1 {
+  width: 760px;
+  height: 760px;
+  left: 50%;
+  top: -420px;
+  margin-left: -620px;
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--signal) 26%, transparent), transparent);
+  animation: aurora-drift-1 24s var(--ease-standard) infinite alternate;
+}
+
+.aurora-2 {
+  width: 680px;
+  height: 680px;
+  left: 50%;
+  top: -300px;
+  margin-left: -40px;
+  background: radial-gradient(closest-side, rgb(45 212 191 / 0.2), transparent);
+  animation: aurora-drift-2 28s var(--ease-standard) infinite alternate;
+}
+
+.aurora-3 {
+  width: 520px;
+  height: 520px;
+  left: 50%;
+  top: 80px;
+  margin-left: -260px;
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--info) 16%, transparent), transparent);
+  animation: aurora-drift-3 20s var(--ease-standard) infinite alternate;
+}
+
+html:not(.dark) .aurora {
+  opacity: 0.7;
+}
+
+@keyframes aurora-drift-1 {
+  to {
+    transform: translate3d(120px, 60px, 0) scale(1.12);
+  }
+}
+
+@keyframes aurora-drift-2 {
+  to {
+    transform: translate3d(-140px, 80px, 0) scale(0.92);
+  }
+}
+
+@keyframes aurora-drift-3 {
+  to {
+    transform: translate3d(60px, -50px, 0) scale(1.18);
+  }
+}
+
+.particle {
+  position: absolute;
+  width: calc(var(--size, 3) * 1px);
+  height: calc(var(--size, 3) * 1px);
+  border-radius: 9999px;
+  background: var(--signal-text);
+  box-shadow: 0 0 10px var(--signal);
+  opacity: 0;
+  animation: particle-rise var(--dur, 9s) ease-in-out var(--delay, 0s) infinite;
+}
+
+@keyframes particle-rise {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(0.6);
+  }
+  25% {
+    opacity: 0.85;
+  }
+  75% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--drift, 12px), -90px, 0) scale(1);
+  }
+}
+
+.hero-scanline {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 160px;
+  opacity: 0;
+  /* Symmetric falloff — a soft beam with no hard edge */
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in oklab, var(--signal) 9%, transparent) 50%,
+    transparent
+  );
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 25%, #000 75%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 25%, #000 75%, transparent);
+  animation: scan-down 9s linear 1.2s infinite;
+}
+
+@keyframes scan-down {
+  0% {
+    opacity: 0;
+    transform: translateY(-120px);
+  }
+  10% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(760px);
+  }
+}
+
+/* Scanning beam over a card while a search runs */
+.scan-beam {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 90px;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in oklab, var(--signal) 12%, transparent) 80%,
+    color-mix(in oklab, var(--signal) 45%, transparent) 100%
+  );
+  animation: scan-card 1.4s var(--ease-standard) infinite;
+}
+
+@keyframes scan-card {
+  from {
+    transform: translateY(-90px);
+  }
+  to {
+    transform: translateY(var(--scan-distance, 420px));
+  }
+}
+
+/* Data packet travelling along an active pipeline connector */
+.packet-track {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.packet-track > span {
+  position: absolute;
+  inset: 0;
+  animation: packet-flow 2.6s var(--ease-standard) infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+.packet-track > span::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 28px;
+  height: 3px;
+  margin-top: -1.5px;
+  border-radius: 9999px;
+  background: linear-gradient(to right, transparent, var(--signal-text));
+  box-shadow: 0 0 10px var(--signal);
+}
+
+@keyframes packet-flow {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(28px);
+  }
+}
+
+.packet-track-vertical > span {
+  animation-name: packet-flow-y;
+}
+
+.packet-track-vertical > span::after {
+  right: auto;
+  top: auto;
+  bottom: 0;
+  left: 50%;
+  width: 3px;
+  height: 28px;
+  margin-top: 0;
+  margin-left: -1.5px;
+  background: linear-gradient(to bottom, transparent, var(--signal-text));
+}
+
+@keyframes packet-flow-y {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(28px);
+  }
+}
+
+/* ==========================================================================
    View transitions
    ========================================================================== */
 
