@@ -2,7 +2,7 @@ async function testScoping() {
   console.log("=== Testing Document Scoping & Filtering ===");
 
   // 1. Fetch documents to get IDs
-  const docsRes = await fetch("http://localhost:3000/api/documents?kbId=default-kb-1");
+  const docsRes = await fetch("http://localhost:3000/api/documents?kbId=00000000-0000-4000-8000-000000000001");
   const docsJson = await docsRes.json();
   const docs = docsJson.data.documents;
   console.log("Found documents in KB:", docs.map(d => `${d.title} (${d.id})`));
@@ -17,7 +17,7 @@ async function testScoping() {
     body: JSON.stringify({
       query: "standar pipeline deployment dan testing",
       searchMode: "hybrid",
-      knowledgeBaseId: "default-kb-1",
+      knowledgeBaseId: "00000000-0000-4000-8000-000000000001",
       filterDocumentIds: [devOpsDoc.id],
       enableReranking: true,
       threshold: 0.3,

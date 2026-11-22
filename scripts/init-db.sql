@@ -1,13 +1,30 @@
 -- PostgreSQL + pgvector Initialization Script
 -- Execute in Supabase SQL editor, Neon console, or standard PostgreSQL
+--
+-- Creates the same schema as applying prisma/migrations in order, for setups
+-- that cannot run `prisma migrate deploy`. Use it on a new, empty database
+-- only; upgrade an existing database with `prisma migrate deploy` instead.
+-- To switch a database created by this script over to Prisma Migrate later,
+-- mark the migrations as applied first, e.g.
+--   prisma migrate resolve --applied 0_init   (and each later migration)
 
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+DO $$ BEGIN
+    CREATE TYPE "DocumentStatus" AS ENUM ('PROCESSING', 'INDEXED', 'FAILED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE "MessageRole" AS ENUM ('USER', 'ASSISTANT');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
 CREATE TABLE IF NOT EXISTS knowledge_bases (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id VARCHAR(255) NOT NULL DEFAULT 'user_default',
-    name VARCHAR(255) NOT NULL,
+    user_id TEXT NOT NULL DEFAULT 'user_default',
+    name TEXT NOT NULL,
     description TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
@@ -15,11 +32,11 @@ CREATE TABLE IF NOT EXISTS knowledge_bases (
 CREATE TABLE IF NOT EXISTS documents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     knowledge_base_id UUID NOT NULL REFERENCES knowledge_bases(id) ON DELETE CASCADE,
-    title VARCHAR(255) NOT NULL,
+    title TEXT NOT NULL,
     file_url TEXT NOT NULL,
-    file_type VARCHAR(100) NOT NULL,
+    file_type TEXT NOT NULL,
     file_size INTEGER NOT NULL,
-    status VARCHAR(50) NOT NULL DEFAULT 'PROCESSING',
+    status "DocumentStatus" NOT NULL DEFAULT 'PROCESSING',
     chunk_count INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
@@ -34,31 +51,41 @@ CREATE TABLE IF NOT EXISTS document_chunks (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS document_chunks_embedding_hnsw_idx 
-ON document_chunks 
+CREATE INDEX IF NOT EXISTS document_chunks_embedding_hnsw_idx
+ON document_chunks
 USING hnsw (embedding vector_cosine_ops)
 WITH (m = 16, ef_construction = 64);
 
-CREATE INDEX IF NOT EXISTS idx_documents_kb_id ON documents(knowledge_base_id);
-CREATE INDEX IF NOT EXISTS idx_document_chunks_doc_id ON document_chunks(document_id);
+CREATE INDEX IF NOT EXISTS documents_knowledge_base_id_idx ON documents(knowledge_base_id);
+CREATE INDEX IF NOT EXISTS document_chunks_document_id_idx ON document_chunks(document_id);
 
 CREATE TABLE IF NOT EXISTS chat_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     knowledge_base_id UUID NOT NULL REFERENCES knowledge_bases(id) ON DELETE CASCADE,
-    user_id VARCHAR(255) NOT NULL DEFAULT 'user_default',
-    title VARCHAR(255) NOT NULL,
+    user_id TEXT NOT NULL DEFAULT 'user_default',
+    title TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_chat_sessions_kb_id ON chat_sessions(knowledge_base_id);
+CREATE INDEX IF NOT EXISTS chat_sessions_knowledge_base_id_idx ON chat_sessions(knowledge_base_id);
 
 CREATE TABLE IF NOT EXISTS messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     chat_session_id UUID NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
-    role VARCHAR(50) NOT NULL,
+    role "MessageRole" NOT NULL,
     content TEXT NOT NULL,
     citations JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages(chat_session_id);
+CREATE INDEX IF NOT EXISTS messages_chat_session_id_idx ON messages(chat_session_id);
+
+-- Default knowledge base (DEFAULT_KNOWLEDGE_BASE_ID in lib/knowledge-base.ts)
+INSERT INTO knowledge_bases (id, user_id, name, description)
+VALUES (
+    '00000000-0000-4000-8000-000000000001',
+    'user_enterprise',
+    'Enterprise Core Knowledge',
+    'Dokumentasi standar SOP, arsitektur sistem, dan panduan operasional perusahaan.'
+)
+ON CONFLICT (id) DO NOTHING;

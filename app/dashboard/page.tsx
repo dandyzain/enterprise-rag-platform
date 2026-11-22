@@ -18,9 +18,10 @@ import {
   ChatSessionItem,
 } from "@/lib/rag/types";
 import { toast } from "sonner";
+import { DEFAULT_KNOWLEDGE_BASE_ID, resolveKnowledgeBaseId } from "@/lib/knowledge-base";
 
 export default function DashboardPage() {
-  const [selectedKbId, setSelectedKbId] = React.useState("default-kb-1");
+  const [selectedKbId, setSelectedKbId] = React.useState(DEFAULT_KNOWLEDGE_BASE_ID);
   const [documents, setDocuments] = React.useState<DocumentItem[]>([]);
   const [knowledgeBases, setKnowledgeBases] = React.useState<KnowledgeBaseItem[]>([]);
   const [chatSessions, setChatSessions] = React.useState<ChatSessionItem[]>([]);
@@ -55,7 +56,7 @@ export default function DashboardPage() {
       const params = new URLSearchParams(window.location.search);
       const urlKb = params.get("kb");
       if (urlKb) {
-        setSelectedKbId(urlKb);
+        setSelectedKbId(resolveKnowledgeBaseId(urlKb));
       }
 
       try {

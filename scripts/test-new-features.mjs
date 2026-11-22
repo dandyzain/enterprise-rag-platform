@@ -7,7 +7,7 @@ async function main() {
   console.log("Seed result:", seedJson.message, "Docs:", seedJson.data?.totalDocuments);
 
   console.log("\n=== 2. Test Knowledge Base Export Backup ===");
-  const exportRes = await fetch("http://localhost:3000/api/knowledge-bases/default-kb-1/export");
+  const exportRes = await fetch("http://localhost:3000/api/knowledge-bases/00000000-0000-4000-8000-000000000001/export");
   if (!exportRes.ok) {
     throw new Error(`Export failed with status: ${exportRes.status}`);
   }
@@ -23,7 +23,7 @@ async function main() {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      knowledgeBaseId: "default-kb-1",
+      knowledgeBaseId: "00000000-0000-4000-8000-000000000001",
       title: "Sesi Uji Coba Awal",
     }),
   });
@@ -47,7 +47,7 @@ async function main() {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      knowledgeBaseId: "default-kb-1",
+      knowledgeBaseId: "00000000-0000-4000-8000-000000000001",
       title: "Percakapan Baru",
     }),
   });
@@ -58,7 +58,7 @@ async function main() {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      knowledgeBaseId: "default-kb-1",
+      knowledgeBaseId: "00000000-0000-4000-8000-000000000001",
       chatSessionId: blankSessionId,
       messages: [
         {
@@ -80,7 +80,7 @@ async function main() {
   console.log("Groundedness Header:", chatRes.headers.get("x-groundedness"));
 
   // Verify auto-title
-  const sessionsListRes = await fetch("http://localhost:3000/api/chat/sessions?kbId=default-kb-1");
+  const sessionsListRes = await fetch("http://localhost:3000/api/chat/sessions?kbId=00000000-0000-4000-8000-000000000001");
   const sessionsListJson = await sessionsListRes.json();
   const autoTitledSession = sessionsListJson.data?.find((s) => s.id === blankSessionId);
   console.log("Auto-titled Session Name:", autoTitledSession?.title);

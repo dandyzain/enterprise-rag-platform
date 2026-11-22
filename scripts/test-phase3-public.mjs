@@ -21,7 +21,7 @@ async function testPhase3() {
     },
     body: JSON.stringify({
       messages: [{ role: "user", content: "Apa standar arsitektur cloud?" }],
-      knowledgeBaseId: "default-kb-1",
+      knowledgeBaseId: "00000000-0000-4000-8000-000000000001",
     }),
   });
 
@@ -46,7 +46,7 @@ async function testPhase3() {
     },
     body: JSON.stringify({
       messages: [{ role: "user", content: "Jelaskan prinsip pemulihan bencana RPO dan RTO." }],
-      knowledgeBaseId: "default-kb-1",
+      knowledgeBaseId: "00000000-0000-4000-8000-000000000001",
     }),
   });
 
@@ -61,7 +61,7 @@ async function testPhase3() {
   }
 
   console.log("\n=== 3. Test Shared Knowledge Base Access ===");
-  const kbRes = await fetch("http://localhost:3000/api/documents?kbId=default-kb-1", {
+  const kbRes = await fetch("http://localhost:3000/api/documents?kbId=00000000-0000-4000-8000-000000000001", {
     headers: {
       Cookie: guestCookie,
     },

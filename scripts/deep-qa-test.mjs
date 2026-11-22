@@ -136,7 +136,7 @@ async function runDeepQa() {
   const seedRes = await fetch(`${BASE_URL}/api/seed`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Cookie: adminCookie },
-    body: JSON.stringify({ knowledgeBaseId: "default-kb-1" }),
+    body: JSON.stringify({ knowledgeBaseId: "00000000-0000-4000-8000-000000000001" }),
   });
   const seedData = await seedRes.json();
   check(seedRes.status === 200 && seedData.data?.length === 3, "2.1 One-Click Enterprise Document Seeder (3 Documents Seeded)");
@@ -144,7 +144,7 @@ async function runDeepQa() {
   // 2.2 Binary Executable (MZ) disguised as PDF
   const mzHeader = Buffer.from([0x4d, 0x5a, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00]);
   const malwareForm = new FormData();
-  malwareForm.append("knowledgeBaseId", "default-kb-1");
+  malwareForm.append("knowledgeBaseId", "00000000-0000-4000-8000-000000000001");
   malwareForm.append("file", new Blob([mzHeader], { type: "application/pdf" }), "invoice_trojan.pdf");
   const malwareRes = await fetch(`${BASE_URL}/api/documents/ingest`, {
     method: "POST",
@@ -165,7 +165,7 @@ Kartu Kredit: 4111222233334444
 WhatsApp: +6281234567890
 API Token: sk-proj-1234567890abcdef1234567890`;
   const piiForm = new FormData();
-  piiForm.append("knowledgeBaseId", "default-kb-1");
+  piiForm.append("knowledgeBaseId", "00000000-0000-4000-8000-000000000001");
   piiForm.append("file", new Blob([piiText], { type: "text/plain" }), "pii_audit_test.txt");
   const piiUploadRes = await fetch(`${BASE_URL}/api/documents/ingest`, {
     method: "POST",
@@ -217,7 +217,7 @@ API Token: sk-proj-1234567890abcdef1234567890`;
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       query: "kebijakan enkripsi data rest dan transit ISO 27001",
-      knowledgeBaseId: "default-kb-1",
+      knowledgeBaseId: "00000000-0000-4000-8000-000000000001",
       searchMode: "hybrid",
       topK: 3,
       enableReranking: true,
@@ -247,7 +247,7 @@ API Token: sk-proj-1234567890abcdef1234567890`;
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       query: "infrastruktur komputasi awan",
-      knowledgeBaseId: "default-kb-1",
+      knowledgeBaseId: "00000000-0000-4000-8000-000000000001",
       searchMode: "semantic",
       topK: 2,
     }),
@@ -261,7 +261,7 @@ API Token: sk-proj-1234567890abcdef1234567890`;
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       query: "SEC-POL-04",
-      knowledgeBaseId: "default-kb-1",
+      knowledgeBaseId: "00000000-0000-4000-8000-000000000001",
       searchMode: "keyword",
       topK: 2,
     }),
@@ -273,7 +273,7 @@ API Token: sk-proj-1234567890abcdef1234567890`;
   );
 
   // 3.6 Public Developer GET /api/search with query string
-  const getSearch = await fetch(`${BASE_URL}/api/search?q=infrastruktur%20cloud&knowledgeBaseId=default-kb-1&topK=2`);
+  const getSearch = await fetch(`${BASE_URL}/api/search?q=infrastruktur%20cloud&knowledgeBaseId=00000000-0000-4000-8000-000000000001&topK=2`);
   const getSearchData = await getSearch.json();
   check(
     getSearch.status === 200 && getSearchData.data?.totalFound > 0,
@@ -289,7 +289,7 @@ API Token: sk-proj-1234567890abcdef1234567890`;
   const newChatSession = await fetch(`${BASE_URL}/api/chat/sessions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Cookie: memberCookie },
-    body: JSON.stringify({ knowledgeBaseId: "default-kb-1", title: "QA Session Q4" }),
+    body: JSON.stringify({ knowledgeBaseId: "00000000-0000-4000-8000-000000000001", title: "QA Session Q4" }),
   });
   const sessionData = await newChatSession.json();
   const sessionId = sessionData.data?.id;
@@ -301,7 +301,7 @@ API Token: sk-proj-1234567890abcdef1234567890`;
     headers: { "Content-Type": "application/json", Cookie: memberCookie },
     body: JSON.stringify({
       sessionId,
-      knowledgeBaseId: "default-kb-1",
+      knowledgeBaseId: "00000000-0000-4000-8000-000000000001",
       messages: [{ role: "user", content: "Apa standar enkripsi data yang ditetapkan dalam kebijakan perusahaan?" }],
     }),
   });
@@ -329,7 +329,7 @@ API Token: sk-proj-1234567890abcdef1234567890`;
       "x-custom-openai-key": "sk-proj-test-byok-verification-key-12345",
     },
     body: JSON.stringify({
-      knowledgeBaseId: "default-kb-1",
+      knowledgeBaseId: "00000000-0000-4000-8000-000000000001",
       messages: [{ role: "user", content: "Tes BYOK" }],
     }),
   });
@@ -360,10 +360,10 @@ API Token: sk-proj-1234567890abcdef1234567890`;
   console.log(`\n${colors.bold}[SECTION 5] Data Portability, SEO Crawlers & Public Routing${colors.reset}`);
 
   // 5.1 Export Knowledge Base JSON
-  const exportRes = await fetch(`${BASE_URL}/api/knowledge-bases/default-kb-1/export`);
+  const exportRes = await fetch(`${BASE_URL}/api/knowledge-bases/00000000-0000-4000-8000-000000000001/export`);
   const exportData = await exportRes.json();
   check(
-    exportRes.status === 200 && exportData.knowledgeBase?.id === "default-kb-1" && Array.isArray(exportData.documents),
+    exportRes.status === 200 && exportData.knowledgeBase?.id === "00000000-0000-4000-8000-000000000001" && Array.isArray(exportData.documents),
     "5.1 Knowledge Base JSON Archive Export Package",
     `Exported Docs: ${exportData.documents?.length}`
   );

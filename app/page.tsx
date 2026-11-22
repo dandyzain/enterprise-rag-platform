@@ -22,6 +22,7 @@ import { HeroBackdrop } from "@/components/marketing/hero-backdrop";
 import { PipelineRail } from "@/components/marketing/pipeline-rail";
 import { ease, spring } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { DEFAULT_KNOWLEDGE_BASE_ID } from "@/lib/knowledge-base";
 
 const heroOrchestration: Variants = {
   hidden: {},
@@ -99,7 +100,7 @@ function HomeContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           query: queryText,
-          knowledgeBaseId: "default-kb-1",
+          knowledgeBaseId: DEFAULT_KNOWLEDGE_BASE_ID,
           searchMode: "hybrid",
           topK: 3,
           enableReranking: true,

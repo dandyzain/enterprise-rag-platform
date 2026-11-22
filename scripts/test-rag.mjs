@@ -11,7 +11,7 @@ async function runTests() {
     body: JSON.stringify({
       query: "SEC-POL-04 enkripsi AES-256",
       searchMode: "hybrid",
-      knowledgeBaseId: "default-kb-1",
+      knowledgeBaseId: "00000000-0000-4000-8000-000000000001",
       threshold: 0.5,
       topK: 3,
     }),
@@ -39,7 +39,7 @@ async function runTests() {
           content: "Sebutkan standar enkripsi data dan target RTO RPO perusahaan.",
         },
       ],
-      knowledgeBaseId: "default-kb-1",
+      knowledgeBaseId: "00000000-0000-4000-8000-000000000001",
       searchMode: "hybrid",
       similarityThreshold: 0.5,
       topK: 4,

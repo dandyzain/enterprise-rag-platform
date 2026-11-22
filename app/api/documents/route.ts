@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { DEFAULT_KNOWLEDGE_BASE_ID } from "@/lib/knowledge-base";
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const kbId = searchParams.get("kbId") || "default-kb-1";
+    const kbId = searchParams.get("kbId") || DEFAULT_KNOWLEDGE_BASE_ID;
 
     const [documents, stats, knowledgeBases] = await Promise.all([
       db.getDocumentsByKb(kbId),

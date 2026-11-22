@@ -1,10 +1,17 @@
 // Prisma Schema for Enterprise Knowledge Base & RAG Platform
 // Supports PostgreSQL with pgvector extension
+//
+// The database is created by the SQL files in prisma/migrations (apply them
+// with `prisma migrate deploy`), and this schema must describe exactly what
+// those migrations produce: `prisma migrate diff` from a migrated database to
+// this file must report no difference. Change the schema by adding a new
+// migration, and keep the @db.* attributes in sync with the SQL:
+// lib/db/index.ts runs raw SQL that casts ids with `::uuid`.
 
 datasource db {
   provider   = "postgresql"
   url        = env("DATABASE_URL")
-  extensions = [vector]
+  extensions = [vector, uuid_ossp(map: "uuid-ossp")]
 }
 
 generator client {
@@ -24,11 +31,11 @@ enum MessageRole {
 }
 
 model KnowledgeBase {
-  id          String        @id @default(uuid())
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId      String        @default("user_default") @map("user_id")
   name        String
   description String?
-  createdAt   DateTime      @default(now()) @map("created_at")
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
 
   documents    Document[]
   chatSessions ChatSession[]
@@ -37,17 +44,17 @@ model KnowledgeBase {
 }
 
 model Document {
-  id              String         @id @default(uuid())
-  knowledgeBaseId String         @map("knowledge_base_id")
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  knowledgeBaseId String         @map("knowledge_base_id") @db.Uuid
   title           String
   fileUrl         String         @map("file_url")
   fileType        String         @map("file_type")
   fileSize        Int            @map("file_size")
   status          DocumentStatus @default(PROCESSING)
   chunkCount      Int            @default(0) @map("chunk_count")
-  createdAt       DateTime       @default(now()) @map("created_at")
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  knowledgeBase   KnowledgeBase  @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  knowledgeBase   KnowledgeBase  @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   chunks          DocumentChunk[]
 
   @@index([knowledgeBaseId])
@@ -55,28 +62,35 @@ model Document {
 }
 
 model DocumentChunk {
-  id          String                    @id @default(uuid())
-  documentId  String                    @map("document_id")
+  id          String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId  String                    @map("document_id") @db.Uuid
   content     String
   chunkIndex  Int                       @map("chunk_index")
   pageNumber  Int?                      @map("page_number")
   embedding   Unsupported("vector(1536)")?
-  createdAt   DateTime                  @default(now()) @map("created_at")
+  createdAt   DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  document    Document                  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  document    Document                  @relation(fields: [documentId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([documentId])
+  // The migrations create this as an HNSW index
+  // (`USING hnsw (embedding vector_cosine_ops)`). Prisma cannot express HNSW
+  // and introspects it as this plain index; it is declared here so that
+  // `prisma migrate dev` / `migrate diff` keep it instead of dropping it.
+  // Do not create the database with `prisma db push`: it would build a B-tree
+  // index here instead, which cannot hold 1536-dimension vectors.
+  @@index([embedding], map: "document_chunks_embedding_hnsw_idx")
   @@map("document_chunks")
 }
 
 model ChatSession {
-  id              String        @id @default(uuid())
-  knowledgeBaseId String        @map("knowledge_base_id")
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  knowledgeBaseId String        @map("knowledge_base_id") @db.Uuid
   userId          String        @default("user_default") @map("user_id")
   title           String
-  createdAt       DateTime      @default(now()) @map("created_at")
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  knowledgeBase   KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  knowledgeBase   KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   messages        Message[]
 
   @@index([knowledgeBaseId])
@@ -84,14 +98,14 @@ model ChatSession {
 }
 
 model Message {
-  id            String      @id @default(uuid())
-  chatSessionId String      @map("chat_session_id")
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chatSessionId String      @map("chat_session_id") @db.Uuid
   role          MessageRole
   content       String
   citations     Json?
-  createdAt     DateTime    @default(now()) @map("created_at")
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  chatSession   ChatSession @relation(fields: [chatSessionId], references: [id], onDelete: Cascade)
+  chatSession   ChatSession @relation(fields: [chatSessionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([chatSessionId])
   @@map("messages")

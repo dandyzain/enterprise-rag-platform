@@ -42,6 +42,7 @@ import { toast } from "sonner";
 import { useLanguage } from "@/lib/i18n/context";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { CortexLogo } from "@/components/ui/logo";
+import { DEFAULT_KNOWLEDGE_BASE_ID } from "@/lib/knowledge-base";
 
 interface SidebarProps {
   documents: DocumentItem[];
@@ -125,7 +126,7 @@ export function Sidebar({
   const selectedKb =
     knowledgeBases.find((k) => k.id === selectedKbId) ||
     knowledgeBases[0] || {
-      id: "default-kb-1",
+      id: DEFAULT_KNOWLEDGE_BASE_ID,
       name: "Enterprise Core Knowledge",
     };
 

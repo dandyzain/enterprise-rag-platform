@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { performSemanticSearch } from "@/lib/rag/search";
 import { z } from "zod";
+import { DEFAULT_KNOWLEDGE_BASE_ID } from "@/lib/knowledge-base";
 
 const SearchQuerySchema = z.object({
   query: z.string().min(1, "Query pencarian tidak boleh kosong"),
-  knowledgeBaseId: z.string().default("default-kb-1"),
+  knowledgeBaseId: z.string().default(DEFAULT_KNOWLEDGE_BASE_ID),
   searchMode: z.enum(["hybrid", "semantic", "keyword"]).default("hybrid"),
   threshold: z.number().min(0.1).max(1.0).default(0.65),
   topK: z.number().min(1).max(20).default(5),
@@ -78,7 +79,7 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const query = searchParams.get("q") || searchParams.get("query") || "";
-    const knowledgeBaseId = searchParams.get("knowledgeBaseId") || searchParams.get("kb") || "default-kb-1";
+    const knowledgeBaseId = searchParams.get("knowledgeBaseId") || searchParams.get("kb") || DEFAULT_KNOWLEDGE_BASE_ID;
     const searchMode = (searchParams.get("searchMode") || "hybrid") as "hybrid" | "semantic" | "keyword";
     const threshold = parseFloat(searchParams.get("threshold") || "0.65");
     const topK = parseInt(searchParams.get("topK") || "5", 10);

@@ -74,7 +74,7 @@ async function testPdfIngestion() {
   const formData = new FormData();
   const fileBlob = new Blob([pdfBuffer], { type: "application/pdf" });
   formData.append("file", fileBlob, "sample-handbook-2026.pdf");
-  formData.append("knowledgeBaseId", "default-kb-1");
+  formData.append("knowledgeBaseId", "00000000-0000-4000-8000-000000000001");
 
   console.log("Posting to POST /api/documents/ingest ...");
   const response = await fetch("http://localhost:3000/api/documents/ingest", {
@@ -102,7 +102,7 @@ async function testPdfIngestion() {
       body: JSON.stringify({
         query: "SLA 99.99% RTO 60 menit HSM FIPS",
         searchMode: "hybrid",
-        knowledgeBaseId: "default-kb-1",
+        knowledgeBaseId: "00000000-0000-4000-8000-000000000001",
         threshold: 0.4,
         topK: 3,
       }),

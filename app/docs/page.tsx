@@ -21,6 +21,7 @@ import { useTheme } from "@/components/providers/theme-provider";
 import { useLanguage } from "@/lib/i18n/context";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { CortexLogo } from "@/components/ui/logo";
+import { DEFAULT_KNOWLEDGE_BASE_ID } from "@/lib/knowledge-base";
 
 interface CodeSnippet {
   curl: string;
@@ -37,7 +38,7 @@ const SNIPPETS: Record<string, CodeSnippet> = {
     "messages": [
       { "role": "user", "content": "Explain enterprise cloud architecture and RPO/RTO policy." }
     ],
-    "knowledgeBaseId": "default-kb-1",
+    "knowledgeBaseId": "${DEFAULT_KNOWLEDGE_BASE_ID}",
     "searchMode": "hybrid",
     "similarityThreshold": 0.65,
     "topK": 5,
@@ -54,7 +55,7 @@ const response = await fetch("http://localhost:3000/api/chat", {
   },
   body: JSON.stringify({
     messages: [{ role: "user", content: "What are the ISO 27001 data security standards?" }],
-    knowledgeBaseId: "default-kb-1",
+    knowledgeBaseId: "${DEFAULT_KNOWLEDGE_BASE_ID}",
     searchMode: "hybrid",
     topK: 5,
   }),
@@ -78,7 +79,7 @@ headers = {
 }
 payload = {
     "messages": [{"role": "user", "content": "What is the disaster recovery architecture standard?"}],
-    "knowledgeBaseId": "default-kb-1",
+    "knowledgeBaseId": "${DEFAULT_KNOWLEDGE_BASE_ID}",
     "searchMode": "hybrid",
     "topK": 5
 }
@@ -100,7 +101,7 @@ for chunk in response.iter_content(chunk_size=128):
   -H "Content-Type: application/json" \\
   -d '{
     "query": "TLS 1.3 encryption and data retention policy",
-    "knowledgeBaseId": "default-kb-1",
+    "knowledgeBaseId": "${DEFAULT_KNOWLEDGE_BASE_ID}",
     "searchMode": "hybrid",
     "topK": 3,
     "enableReranking": true
@@ -110,7 +111,7 @@ for chunk in response.iter_content(chunk_size=128):
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
     query: "Disaster Recovery multi-region SLA",
-    knowledgeBaseId: "default-kb-1",
+    knowledgeBaseId: "${DEFAULT_KNOWLEDGE_BASE_ID}",
     searchMode: "hybrid",
     topK: 3,
     enableReranking: true
@@ -124,7 +125,7 @@ res = requests.post(
     "http://localhost:3000/api/search",
     json={
         "query": "AES-256 data at rest encryption",
-        "knowledgeBaseId": "default-kb-1",
+        "knowledgeBaseId": "${DEFAULT_KNOWLEDGE_BASE_ID}",
         "searchMode": "hybrid",
         "topK": 3,
         "enableReranking": True
@@ -135,12 +136,12 @@ print(res.json())`,
   ingest: {
     curl: `curl -X POST http://localhost:3000/api/documents/ingest \\
   -F "file=@/path/to/documentation_sop.pdf" \\
-  -F "knowledgeBaseId=default-kb-1"`,
+  -F "knowledgeBaseId=${DEFAULT_KNOWLEDGE_BASE_ID}"`,
     typescript: `import fs from "fs";
 
 const formData = new FormData();
 formData.append("file", new Blob([fs.readFileSync("sop.pdf")]), "sop.pdf");
-formData.append("knowledgeBaseId", "default-kb-1");
+formData.append("knowledgeBaseId", "${DEFAULT_KNOWLEDGE_BASE_ID}");
 
 const res = await fetch("http://localhost:3000/api/documents/ingest", {
   method: "POST",
@@ -151,7 +152,7 @@ console.log("Ingested:", result.data.document.title);`,
     python: `import requests
 
 files = {"file": open("sop.pdf", "rb")}
-data = {"knowledgeBaseId": "default-kb-1"}
+data = {"knowledgeBaseId": "${DEFAULT_KNOWLEDGE_BASE_ID}"}
 
 res = requests.post("http://localhost:3000/api/documents/ingest", files=files, data=data)
 print(res.json())`,
@@ -197,7 +198,7 @@ export default function DocsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           query: consoleQuery,
-          knowledgeBaseId: "default-kb-1",
+          knowledgeBaseId: DEFAULT_KNOWLEDGE_BASE_ID,
           searchMode: consoleMode,
           topK: consoleTopK,
           enableReranking: consoleReranking,

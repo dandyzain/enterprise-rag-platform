@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSessionFromRequest } from "@/lib/auth/session";
 import { z } from "zod";
+import { DEFAULT_KNOWLEDGE_BASE_ID } from "@/lib/knowledge-base";
 
 const CreateSessionSchema = z.object({
   knowledgeBaseId: z.string().min(1, "Knowledge Base ID is required"),
@@ -12,7 +13,7 @@ export async function GET(req: NextRequest) {
   try {
     const user = getSessionFromRequest(req);
     const { searchParams } = new URL(req.url);
-    const kbId = searchParams.get("kbId") || "default-kb-1";
+    const kbId = searchParams.get("kbId") || DEFAULT_KNOWLEDGE_BASE_ID;
     const effectiveUserId = user?.id || "usr_guest_003";
 
     const sessions = await db.getChatSessions(kbId, effectiveUserId);

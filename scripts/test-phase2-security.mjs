@@ -16,7 +16,7 @@ async function main() {
   const fakeBlob = new Blob([fakeExeBytes], { type: "application/pdf" });
   const fakeForm = new FormData();
   fakeForm.append("file", fakeBlob, "disguised_malware.pdf");
-  fakeForm.append("knowledgeBaseId", "default-kb-1");
+  fakeForm.append("knowledgeBaseId", "00000000-0000-4000-8000-000000000001");
 
   const rejectRes = await fetch("http://localhost:3000/api/documents/ingest", {
     method: "POST",
@@ -42,7 +42,7 @@ Kebijakan Operasional: Seluruh data karyawan dilindungi undang-undang PDP dan IS
   const safeBlob = new Blob([sensitiveDocContent], { type: "text/plain" });
   const safeForm = new FormData();
   safeForm.append("file", safeBlob, "personalia_rahasia.txt");
-  safeForm.append("knowledgeBaseId", "default-kb-1");
+  safeForm.append("knowledgeBaseId", "00000000-0000-4000-8000-000000000001");
 
   const ingestRes = await fetch("http://localhost:3000/api/documents/ingest", {
     method: "POST",
@@ -84,7 +84,7 @@ Kebijakan Operasional: Seluruh data karyawan dilindungi undang-undang PDP dan IS
     },
     body: JSON.stringify({
       messages: [{ role: "user", content: "Apa standar arsitektur cloud?" }],
-      knowledgeBaseId: "default-kb-1",
+      knowledgeBaseId: "00000000-0000-4000-8000-000000000001",
     }),
   });
 

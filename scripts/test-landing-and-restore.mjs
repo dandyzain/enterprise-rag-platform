@@ -27,7 +27,7 @@ async function main() {
   await fetch("http://localhost:3000/api/seed", { method: "POST" });
 
   // Step B: Export
-  const exportRes = await fetch("http://localhost:3000/api/knowledge-bases/default-kb-1/export");
+  const exportRes = await fetch("http://localhost:3000/api/knowledge-bases/00000000-0000-4000-8000-000000000001/export");
   const backupData = await exportRes.json();
   console.log("Exported KB Name:", backupData.knowledgeBase?.name, "Docs:", backupData.documents?.length);
 

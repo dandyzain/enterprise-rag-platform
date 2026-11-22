@@ -11,6 +11,7 @@ import {
   GroundednessReport,
 } from "@/lib/rag/types";
 import { getBatchEmbeddings } from "@/lib/rag/embedder";
+import { DEFAULT_KNOWLEDGE_BASE_ID, resolveKnowledgeBaseId } from "@/lib/knowledge-base";
 
 // Global Prisma Singleton for Next.js hot-reloading
 const globalForPrisma = globalThis as unknown as {
@@ -36,14 +37,12 @@ interface InMemoryStore {
   messages: Map<string, ChatMessageItem>;
 }
 
-const defaultKbId = "default-kb-1";
-
 const memoryStore: InMemoryStore = {
   knowledgeBases: new Map([
     [
-      defaultKbId,
+      DEFAULT_KNOWLEDGE_BASE_ID,
       {
-        id: defaultKbId,
+        id: DEFAULT_KNOWLEDGE_BASE_ID,
         userId: "user_enterprise",
         name: "Enterprise Core Knowledge",
         description: "Dokumentasi standar SOP, arsitektur sistem, dan panduan operasional perusahaan.",
@@ -80,7 +79,7 @@ export const db = {
           where:
             userId && userId !== "usr_admin_001"
               ? {
-                  OR: [{ userId }, { id: "default-kb-1" }],
+                  OR: [{ userId }, { id: DEFAULT_KNOWLEDGE_BASE_ID }],
                 }
               : undefined,
           orderBy: { createdAt: "desc" },
@@ -103,7 +102,7 @@ export const db = {
     if (!userId || userId === "usr_admin_001") {
       return all;
     }
-    return all.filter((kb) => kb.id === "default-kb-1" || kb.userId === userId);
+    return all.filter((kb) => kb.id === DEFAULT_KNOWLEDGE_BASE_ID || kb.userId === userId);
   },
 
   async createKnowledgeBase(
@@ -157,9 +156,10 @@ export const db = {
     chunkCount?: number;
   }): Promise<DocumentItem> {
     const id = crypto.randomUUID();
+    const knowledgeBaseId = resolveKnowledgeBaseId(data.knowledgeBaseId);
     const docItem: DocumentItem = {
       id,
-      knowledgeBaseId: data.knowledgeBaseId,
+      knowledgeBaseId,
       title: data.title,
       fileUrl: data.fileUrl,
       fileType: data.fileType,
@@ -174,7 +174,7 @@ export const db = {
         const created = await prisma.document.create({
           data: {
             id,
-            knowledgeBaseId: data.knowledgeBaseId,
+            knowledgeBaseId,
             title: data.title,
             fileUrl: data.fileUrl,
             fileType: data.fileType,
@@ -233,7 +233,8 @@ export const db = {
     }
   },
 
-  async getDocumentsByKb(knowledgeBaseId: string): Promise<DocumentItem[]> {
+  async getDocumentsByKb(kbId: string): Promise<DocumentItem[]> {
+    const knowledgeBaseId = resolveKnowledgeBaseId(kbId);
     try {
       if (process.env.DATABASE_URL) {
         const rows = await prisma.document.findMany({
@@ -336,11 +337,12 @@ export const db = {
 
   // Vector Cosine Similarity Search
   async searchSimilarChunks(
-    knowledgeBaseId: string,
+    kbId: string,
     queryEmbedding: number[],
     threshold = 0.65,
     topK = 5
   ): Promise<SearchResultChunk[]> {
+    const knowledgeBaseId = resolveKnowledgeBaseId(kbId);
     try {
       if (process.env.DATABASE_URL) {
         const vectorStr = `[${queryEmbedding.join(",")}]`;
@@ -511,8 +513,9 @@ export const db = {
   },
 
   async getAllChunksByKb(
-    knowledgeBaseId: string
+    kbId: string
   ): Promise<Array<DocumentChunkItem & { documentTitle: string }>> {
+    const knowledgeBaseId = resolveKnowledgeBaseId(kbId);
     try {
       if (process.env.DATABASE_URL) {
         const rows = await prisma.documentChunk.findMany({
@@ -563,9 +566,10 @@ export const db = {
     userId?: string;
   }): Promise<ChatSessionItem> {
     const id = crypto.randomUUID();
+    const knowledgeBaseId = resolveKnowledgeBaseId(data.knowledgeBaseId);
     const item: ChatSessionItem = {
       id,
-      knowledgeBaseId: data.knowledgeBaseId,
+      knowledgeBaseId,
       userId: data.userId ?? "user_enterprise",
       title: data.title,
       createdAt: new Date(),
@@ -576,7 +580,7 @@ export const db = {
         const row = await prisma.chatSession.create({
           data: {
             id,
-            knowledgeBaseId: data.knowledgeBaseId,
+            knowledgeBaseId,
             userId: data.userId ?? "user_enterprise",
             title: data.title,
           },
@@ -598,9 +602,10 @@ export const db = {
   },
 
   async getChatSessions(
-    knowledgeBaseId: string,
+    kbId: string,
     userId?: string
   ): Promise<ChatSessionItem[]> {
+    const knowledgeBaseId = resolveKnowledgeBaseId(kbId);
     try {
       if (process.env.DATABASE_URL) {
         const rows = await prisma.chatSession.findMany({
@@ -790,7 +795,8 @@ export const db = {
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   },
 
-  async exportKnowledgeBaseData(knowledgeBaseId: string) {
+  async exportKnowledgeBaseData(kbId: string) {
+    const knowledgeBaseId = resolveKnowledgeBaseId(kbId);
     const kbs = await this.getKnowledgeBases();
     const kb = kbs.find((k) => k.id === knowledgeBaseId);
     const docs = await this.getDocumentsByKb(knowledgeBaseId);

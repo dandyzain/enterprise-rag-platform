@@ -118,7 +118,7 @@ async function runE2EandUIUXTests() {
     const seedRes = await fetch(`${BASE_URL}/api/seed`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Cookie: adminCookie },
-      body: JSON.stringify({ knowledgeBaseId: "default-kb-1" }),
+      body: JSON.stringify({ knowledgeBaseId: "00000000-0000-4000-8000-000000000001" }),
     });
     const seedData = await seedRes.json();
     assert(seedRes.status === 200 && seedData.data?.length === 3, "One-Click Enterprise Sample Seeder", `Seeded: ${seedData.data?.length} docs`);
@@ -126,7 +126,7 @@ async function runE2EandUIUXTests() {
     // 3.2 Binary executable malware block (MZ header disguised as .pdf)
     const mzHeader = Buffer.from([0x4d, 0x5a, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00]);
     const malwareForm = new FormData();
-    malwareForm.append("knowledgeBaseId", "default-kb-1");
+    malwareForm.append("knowledgeBaseId", "00000000-0000-4000-8000-000000000001");
     malwareForm.append("file", new Blob([mzHeader], { type: "application/pdf" }), "disguised_trojan.pdf");
     const malwareRes = await fetch(`${BASE_URL}/api/documents/ingest`, {
       method: "POST",
@@ -143,7 +143,7 @@ async function runE2EandUIUXTests() {
     // 3.3 Sensitive PII redaction test
     const piiContent = `Daftar Rekening Internal:\nNama: Agus Sutrisno\nNIK: 3273012345678901\nKartu Kredit: 4111222233334444\nNo HP: 081234567890\nKunci API: sk-proj-1234567890abcdef1234567890`;
     const piiForm = new FormData();
-    piiForm.append("knowledgeBaseId", "default-kb-1");
+    piiForm.append("knowledgeBaseId", "00000000-0000-4000-8000-000000000001");
     piiForm.append("file", new Blob([piiContent], { type: "text/plain" }), "data_rahasia_audit.txt");
     const piiRes = await fetch(`${BASE_URL}/api/documents/ingest`, {
       method: "POST",
@@ -196,7 +196,7 @@ async function runE2EandUIUXTests() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         query: "kebijakan enkripsi data rest transit",
-        knowledgeBaseId: "default-kb-1",
+        knowledgeBaseId: "00000000-0000-4000-8000-000000000001",
         searchMode: "hybrid",
         topK: 3,
       }),
@@ -215,7 +215,7 @@ async function runE2EandUIUXTests() {
 
     // 4.2 GET /api/search with query string
     const getSearchRes = await fetch(
-      `${BASE_URL}/api/search?q=infrastruktur%20cloud&knowledgeBaseId=default-kb-1&topK=2`
+      `${BASE_URL}/api/search?q=infrastruktur%20cloud&knowledgeBaseId=00000000-0000-4000-8000-000000000001&topK=2`
     );
     const getSearchData = await getSearchRes.json();
     assert(
@@ -241,7 +241,7 @@ async function runE2EandUIUXTests() {
       method: "POST",
       headers: { "Content-Type": "application/json", Cookie: memberCookie },
       body: JSON.stringify({
-        knowledgeBaseId: "default-kb-1",
+        knowledgeBaseId: "00000000-0000-4000-8000-000000000001",
         title: "Sesi Uji Coba Keamanan Cloud",
       }),
     });
@@ -255,7 +255,7 @@ async function runE2EandUIUXTests() {
       headers: { "Content-Type": "application/json", Cookie: memberCookie },
       body: JSON.stringify({
         sessionId,
-        knowledgeBaseId: "default-kb-1",
+        knowledgeBaseId: "00000000-0000-4000-8000-000000000001",
         messages: [{ role: "user", content: "Apa standar enkripsi yang digunakan untuk data at rest dan in transit?" }],
       }),
     });
@@ -307,7 +307,7 @@ async function runE2EandUIUXTests() {
         "x-custom-openai-key": "sk-dummy-test-key-for-byok-verification",
       },
       body: JSON.stringify({
-        knowledgeBaseId: "default-kb-1",
+        knowledgeBaseId: "00000000-0000-4000-8000-000000000001",
         messages: [{ role: "user", content: "Tes BYOK bypass" }],
       }),
     });
@@ -326,10 +326,10 @@ async function runE2EandUIUXTests() {
   console.log(`\n${colors.bold}[SUITE 7] Knowledge Base Backup Export & SEO Directives${colors.reset}`);
   try {
     // 7.1 Export JSON
-    const exportRes = await fetch(`${BASE_URL}/api/knowledge-bases/default-kb-1/export`);
+    const exportRes = await fetch(`${BASE_URL}/api/knowledge-bases/00000000-0000-4000-8000-000000000001/export`);
     const exportData = await exportRes.json();
     assert(
-      exportRes.status === 200 && exportData.knowledgeBase?.id === "default-kb-1",
+      exportRes.status === 200 && exportData.knowledgeBase?.id === "00000000-0000-4000-8000-000000000001",
       "Export KB JSON Backup Package",
       `Documents: ${exportData.documents?.length}`
     );

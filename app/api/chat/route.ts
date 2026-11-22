@@ -9,6 +9,7 @@ import { evaluateGroundedness } from "@/lib/rag/evaluator";
 import { SearchMode } from "@/lib/rag/types";
 import { getSessionFromRequest } from "@/lib/auth/session";
 import { checkRateLimit, getClientIdentifier } from "@/lib/ratelimit";
+import { DEFAULT_KNOWLEDGE_BASE_ID } from "@/lib/knowledge-base";
 
 export const maxDuration = 45;
 
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       messages,
-      knowledgeBaseId = "default-kb-1",
+      knowledgeBaseId = DEFAULT_KNOWLEDGE_BASE_ID,
       chatSessionId,
       modelProvider = "openai",
       searchMode = "hybrid" as SearchMode,

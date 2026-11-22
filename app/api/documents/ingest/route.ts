@@ -4,6 +4,7 @@ import { getSessionFromRequest } from "@/lib/auth/session";
 import { PLAN_QUOTAS } from "@/lib/ratelimit";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { DEFAULT_KNOWLEDGE_BASE_ID } from "@/lib/knowledge-base";
 
 export const maxDuration = 60; // Allow sufficient time for large document parsing and embeddings
 
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
     const rawKbId = formData.get("knowledgeBaseId") as string | null;
 
     const validation = IngestFormSchema.safeParse({
-      knowledgeBaseId: rawKbId || "default-kb-1",
+      knowledgeBaseId: rawKbId || DEFAULT_KNOWLEDGE_BASE_ID,
     });
 
     if (!validation.success) {
