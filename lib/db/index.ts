@@ -343,40 +343,59 @@ export const db = {
     topK = 5
   ): Promise<SearchResultChunk[]> {
     const knowledgeBaseId = resolveKnowledgeBaseId(kbId);
+
+    // Without an API key, lib/rag/embedder.ts returns hash-based mock vectors
+    // whose cosine similarities sit far below thresholds tuned for real
+    // models. So both stores cap the threshold at 0.05 and, if nothing passes
+    // it, fall back to any chunk with a positive similarity. This depends on
+    // the embedder, not on the store, so it is decided once for both.
+    const hasExternalKey = Boolean(
+      process.env.OPENAI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY
+    );
+    const effectiveThreshold = hasExternalKey ? threshold : Math.min(threshold, 0.05);
+
     try {
       if (process.env.DATABASE_URL) {
         const vectorStr = `[${queryEmbedding.join(",")}]`;
         // Cosine distance <=> where similarity = 1 - distance
-        const rows = await prisma.$queryRawUnsafe<
-          Array<{
-            id: string;
-            document_id: string;
-            title: string;
-            content: string;
-            chunk_index: number;
-            page_number: number | null;
-            similarity: number;
-          }>
-        >(
-          `SELECT 
-             dc.id, 
-             dc.document_id, 
-             d.title, 
-             dc.content, 
-             dc.chunk_index, 
-             dc.page_number, 
-             (1 - (dc.embedding <=> $1::vector)) AS similarity
-           FROM document_chunks dc
-           JOIN documents d ON d.id = dc.document_id
-           WHERE d.knowledge_base_id = $2::uuid
-             AND (1 - (dc.embedding <=> $1::vector)) >= $3
-           ORDER BY similarity DESC
-           LIMIT $4`,
-          vectorStr,
-          knowledgeBaseId,
-          threshold,
-          topK
-        );
+        const querySimilarRows = (comparison: ">=" | ">", minSimilarity: number) =>
+          prisma.$queryRawUnsafe<
+            Array<{
+              id: string;
+              document_id: string;
+              title: string;
+              content: string;
+              chunk_index: number;
+              page_number: number | null;
+              similarity: number;
+            }>
+          >(
+            `SELECT
+               dc.id,
+               dc.document_id,
+               d.title,
+               dc.content,
+               dc.chunk_index,
+               dc.page_number,
+               (1 - (dc.embedding <=> $1::vector)) AS similarity
+             FROM document_chunks dc
+             JOIN documents d ON d.id = dc.document_id
+             WHERE d.knowledge_base_id = $2::uuid
+               AND (1 - (dc.embedding <=> $1::vector)) ${comparison} $3
+             ORDER BY similarity DESC
+             LIMIT $4`,
+            vectorStr,
+            knowledgeBaseId,
+            minSimilarity,
+            topK
+          );
+
+        let rows = await querySimilarRows(">=", effectiveThreshold);
+        // The memory store's adaptive fallback, for mock vectors only, so that
+        // results with a real embedding key stay exactly as they were.
+        if (rows.length === 0 && !hasExternalKey) {
+          rows = await querySimilarRows(">", 0);
+        }
 
         return rows.map((r) => ({
           id: r.id,
@@ -398,11 +417,6 @@ export const db = {
         .filter((d) => d.knowledgeBaseId === knowledgeBaseId)
         .map((d) => d.id)
     );
-
-    const hasExternalKey = Boolean(
-      process.env.OPENAI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY
-    );
-    const effectiveThreshold = hasExternalKey ? threshold : Math.min(threshold, 0.05);
 
     const results: SearchResultChunk[] = [];
     for (const chunk of memoryStore.chunks.values()) {
