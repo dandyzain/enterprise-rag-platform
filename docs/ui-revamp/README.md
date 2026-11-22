@@ -32,7 +32,7 @@ Tracking document for the `feat/ui-ux-revamp` branch.
 | 3 — Dashboard shell & navigation | — |
 | 4 — Chat & evidence experience | — |
 | 5 — Documents, tools & settings | — |
-| 6 — Landing, login & docs | — |
+| 6 — Landing, login & docs | 🟡 landing animations pulled forward (see below); layout/content redesign still pending |
 | 7 — i18n, a11y, performance & QA | — |
 
 ## Baseline (Phase 0, commit `da393ac`)
@@ -60,6 +60,27 @@ Captured against `pnpm dev` with the in-memory store (no `DATABASE_URL`, no LLM 
 - **Theme:** `lib/theme.ts` is the single source for the no-flash init script and the provider. Preferences: `dark` (default) · `light` · `system` (live OS tracking, cross-tab sync, View Transition cross-fade on switch). Toasts now follow the theme.
 - **Motion:** `lib/motion.ts` mirrors the CSS motion tokens; `tw-animate-css` makes the existing `animate-in …` classes work; `prefers-reduced-motion` is honoured globally.
 - **Dev gotcha:** Turbopack's persistent cache (`.next/dev`) can keep serving a stale `globals.css` after a `git stash`/branch switch. If CSS edits don't show up, stop `pnpm dev`, delete `.next/`, and restart.
+
+## Landing animations (requested ahead of Phase 6)
+
+Reusable motion kit in `components/motion/` (used again in Phases 2–6):
+
+| Component | Purpose |
+|---|---|
+| `MotionProvider` | `LazyMotion` (DOM features only) + `MotionConfig reducedMotion="user"` |
+| `Reveal`, `Stagger`, `StaggerItem`, `riseVariants`, `AnimatedWords` | in-view / on-mount fade-rise, staggering, word-by-word blur reveal |
+| `CountUp` | counts the first number in a string when in view; screen readers get the final value |
+| `Spotlight` | cursor-following glow + border highlight (mouse only, no re-renders) |
+| `Magnetic` | subtle pointer pull for primary CTAs |
+| `ScrollProgress`, `useScrolled` | top progress bar, scrolled-state flag |
+
+Landing page (`app/page.tsx`, `components/marketing/*`):
+- Hero: staggered entrance, headline words blur in, gradient line wipes in and pans; aurora + grid + rising particles + soft scan beam backdrop.
+- Sticky header gains surface/shadow on scroll, logo eases smaller, live status ping, animated theme icon, scroll progress bar.
+- Playground: scan beam + skeletons + shimmering label while searching, staggered results, relevance bars fill to each score, latency badge pops; hero "Search" scrolls the playground into view.
+- Metrics count up; cards lift with spotlight. Pipeline nodes light up in sequence while scrolling, connectors fill and carry a travelling packet. Comparison rows stagger in with ✕/✓ markers.
+- Fixes on the way: primary CTAs use the accessible `primary` token; `<Link><Button>` nesting replaced by `Button asChild`; mobile header no longer wraps (API Docs link moves to the footer below 640px until the Phase 6 mobile menu); long titles in results wrap instead of overflowing.
+- Verified: 27 browser checks (no console/hydration errors, no long tasks while scrolling, no horizontal overflow at 360–1440px in both themes, reduced motion freezes loops and shows final numbers).
 
 ## User-action inventory
 
