@@ -1,0 +1,41 @@
+name: Mirror to GitLab
+
+# Keeps https://gitlab.com/dandyzain.personal/enterprise-rag-platform identical
+# to this GitHub repository: every push to master (and every tag) is pushed to
+# GitLab. GitHub is the source of truth.
+#
+# Requires a repository secret named GITLAB_TOKEN: a GitLab Personal Access
+# Token with the `write_repository` scope. Without it the job is skipped.
+
+on:
+  push:
+    branches: [master]
+    tags: ['*']
+  workflow_dispatch:
+
+concurrency:
+  group: mirror-gitlab
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository (full history)
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Push master and tags to GitLab
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+          GITLAB_REPO: gitlab.com/dandyzain.personal/enterprise-rag-platform.git
+        run: |
+          if [ -z "$GITLAB_TOKEN" ]; then
+            echo "::warning::GITLAB_TOKEN secret is not set; skipping GitLab mirror."
+            exit 0
+          fi
+          URL="https://oauth2:${GITLAB_TOKEN}@${GITLAB_REPO}"
+          git push --force "$URL" HEAD:refs/heads/master
+          git push --force "$URL" --tags
