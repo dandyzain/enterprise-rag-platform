@@ -1,4 +1,4 @@
-image: node:22-alpine
+image: node:26-alpine
 
 stages:
   - test
@@ -15,8 +15,8 @@ cache:
     - .next/cache/
 
 before_script:
-  - corepack enable
-  - corepack prepare pnpm@12.10.1 --activate
+  # Node.js 25+ no longer bundles Corepack, so install pnpm with npm
+  - npm install -g pnpm@12.21.0
   - pnpm config set store-dir .pnpm-store
 
 test:
