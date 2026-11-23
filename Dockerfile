@@ -1,9 +1,10 @@
 # Multi-stage production Dockerfile for Cortex Enterprise RAG Platform
 # Stage 1: Base image with pnpm enabled
-FROM node:22-alpine AS base
+FROM node:26-alpine AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable && apk add --no-cache libc6-compat
+# Node.js 25+ no longer bundles Corepack, so install pnpm with npm
+RUN npm install -g pnpm@12.21.0 && apk add --no-cache libc6-compat
 
 # Stage 2: Install dependencies
 FROM base AS deps
@@ -30,7 +31,7 @@ RUN pnpm prisma generate
 RUN pnpm run build
 
 # Stage 4: Production runner
-FROM node:22-alpine AS runner
+FROM node:26-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
