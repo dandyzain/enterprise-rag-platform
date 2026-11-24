@@ -1,52 +1,84 @@
-import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { apiRoute, ApiError, readJson } from "@/lib/api/route";
+import { withPermissions } from "@/lib/api/access";
+import { BackupSchema } from "@/lib/api/schemas";
+import { indexExistingChunks } from "@/lib/rag/ingest";
+import { getPlanQuota, RATE_LIMITS } from "@/lib/ratelimit";
 
-export async function POST(req: NextRequest) {
-  try {
-    let payload: any = null;
+export const maxDuration = 60;
 
-    const contentType = req.headers.get("content-type") || "";
+const MAX_BACKUP_BYTES = 25 * 1024 * 1024;
 
-    if (contentType.includes("multipart/form-data")) {
-      const formData = await req.formData();
-      const file = formData.get("file") as File | null;
-      if (!file) {
-        return NextResponse.json(
-          { success: false, error: "File backup JSON tidak ditemukan." },
-          { status: 400 }
-        );
-      }
-      const text = await file.text();
-      payload = JSON.parse(text);
-    } else {
-      payload = await req.json();
+/** Restore a JSON backup into a new knowledge base owned by the caller. */
+export const POST = apiRoute(async (ctx) => {
+  const user = ctx.requireUser();
+  await ctx.rateLimit("import", RATE_LIMITS.import);
+
+  let raw: unknown;
+  const contentType = ctx.req.headers.get("content-type") || "";
+  if (contentType.includes("multipart/form-data")) {
+    const formData = await ctx.req.formData();
+    const file = formData.get("file");
+    if (!(file instanceof File)) throw new ApiError("BACKUP_INVALID", 400);
+    if (file.size > MAX_BACKUP_BYTES) throw new ApiError("FILE_TOO_LARGE", 413, { size: (file.size / 1048576).toFixed(1), plan: user.plan, limit: 25 });
+    try {
+      raw = JSON.parse(await file.text());
+    } catch {
+      throw new ApiError("BACKUP_INVALID", 400);
     }
-
-    if (!payload || !payload.knowledgeBase) {
-      return NextResponse.json(
-        { success: false, error: "Format backup tidak valid. Harus menyertakan objek knowledgeBase." },
-        { status: 400 }
-      );
-    }
-
-    const result = await db.importKnowledgeBaseData({
-      knowledgeBase: payload.knowledgeBase,
-      documents: payload.documents || [],
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: `Knowledge Base "${result.knowledgeBase.name}" berhasil dipulihkan (${result.totalDocuments} dokumen, ${result.totalChunks} chunks).`,
-      data: result,
-    });
-  } catch (error: any) {
-    console.error("[API Knowledge Base Import] POST error:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "Gagal memulihkan data Knowledge Base dari file backup.",
-      },
-      { status: 500 }
-    );
+  } else {
+    raw = await readJson(ctx.req);
   }
-}
+
+  const parsed = BackupSchema.safeParse(raw);
+  if (!parsed.success) throw new ApiError("BACKUP_INVALID", 400);
+  const payload = parsed.data;
+
+  const quota = getPlanQuota(user.plan);
+  if ((await db.countKnowledgeBasesByOwner(user.id)) >= quota.maxKnowledgeBases) {
+    throw new ApiError("KB_LIMIT", 403, { limit: quota.maxKnowledgeBases, plan: user.plan });
+  }
+  const docs = payload.documents ?? [];
+  const ownedDocs = await db.countDocumentsByOwner(user.id);
+  if (ownedDocs + docs.length > quota.maxDocuments) {
+    throw new ApiError("DOC_LIMIT", 403, { count: ownedDocs, limit: quota.maxDocuments, plan: user.plan });
+  }
+
+  const baseName = payload.knowledgeBase.name || "Knowledge Base";
+  const suffix = ctx.locale === "id" ? " (Pulihan)" : " (Restored)";
+  const kb = await db.createKnowledgeBase({
+    name: (baseName.endsWith(suffix) ? baseName : `${baseName}${suffix}`).slice(0, 120),
+    description: payload.knowledgeBase.description ?? null,
+    userId: user.id,
+  });
+
+  let totalChunks = 0;
+  for (const doc of docs) {
+    const chunks = (doc.chunks ?? []).map((c, i) => ({
+      content: c.content,
+      chunkIndex: c.chunkIndex ?? i,
+      pageNumber: c.pageNumber ?? null,
+    }));
+    const created = await db.createDocument({
+      knowledgeBaseId: kb.id,
+      title: doc.title,
+      fileUrl: "",
+      fileType: doc.fileType || "text/plain",
+      fileSize: doc.fileSize ?? chunks.reduce((sum, c) => sum + c.content.length, 0),
+      status: chunks.length > 0 ? "PROCESSING" : "INDEXED",
+    });
+    if (chunks.length > 0) {
+      totalChunks += await indexExistingChunks(created.id, chunks);
+    }
+  }
+
+  return ctx.json({
+    success: true,
+    message: ctx.t("BACKUP_RESTORED", { name: kb.name, documents: docs.length, chunks: totalChunks }),
+    data: {
+      knowledgeBase: withPermissions(ctx.actor, [kb])[0],
+      totalDocuments: docs.length,
+      totalChunks,
+    },
+  });
+});

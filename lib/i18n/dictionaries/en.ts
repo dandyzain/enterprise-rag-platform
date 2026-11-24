@@ -117,7 +117,7 @@ export const enDictionary = {
     compRow1Cortex: "BM25 + Dense RRF (100% exact match)",
     compRow2Title: "Candidate Re-Ranking",
     compRow2Naive: "Raw cosine distance only",
-    compRow2Cortex: "Two-Stage Cross-Encoder Top-15",
+    compRow2Cortex: "Two-Stage Lexical Re-ranker (Top-15)",
     compRow3Title: "Hallucination Verification",
     compRow3Naive: "No factuality verification",
     compRow3Cortex: "Sentence auditor (0-100% Groundedness Score)",
@@ -352,7 +352,7 @@ export const enDictionary = {
       queryPlaceholder: "Enter search terms or natural language query...",
       thresholdLabel: "Similarity Threshold",
       topKLabel: "Candidate Count (Top-K)",
-      rerankerLabel: "Two-Stage Cross-Encoder Reranker",
+      rerankerLabel: "Two-Stage Lexical Re-ranker",
       searchButton: "Execute Retrieval",
       searching: "Retrieving...",
       resultsFound: "Passages Found",
@@ -383,7 +383,7 @@ export const enDictionary = {
       topKLabel: "Top-K Retrieved Chunks",
       topKDesc:
         "Number of most relevant candidate passages fed into the LLM grounding context.",
-      rerankLabel: "Two-Stage Cross-Encoder Re-ranking",
+      rerankLabel: "Two-Stage Lexical Re-ranking",
       rerankDesc:
         "Re-score initial dense & sparse candidates with phrase congruence and term coverage.",
       providerLabel: "Inference Model Provider",

@@ -521,8 +521,8 @@ export default function DocsPage() {
             </div>
             <p className="text-xs text-zinc-600 dark:text-zinc-400">
               {language === "en"
-                ? "Executes hybrid retrieval (Dense Vector + BM25 Lexical) via Reciprocal Rank Fusion (RRF) and Cross-Encoder Re-Ranking without forwarding to LLM generators."
-                : "Melakukan pencarian hybrid (Dense Vector + BM25 Lexical) dengan Reciprocal Rank Fusion (RRF) dan Re-Ranking Cross-Encoder tanpa meneruskan ke model LLM."}
+                ? "Executes hybrid retrieval (Dense Vector + BM25 Lexical) via Reciprocal Rank Fusion (RRF) and two-stage lexical re-ranking without forwarding to LLM generators."
+                : "Melakukan pencarian hybrid (Dense Vector + BM25 Lexical) dengan Reciprocal Rank Fusion (RRF) dan re-ranking leksikal dua tahap tanpa meneruskan ke model LLM."}
             </p>
 
             <div className="relative rounded-xl border border-zinc-300 dark:border-zinc-800 bg-zinc-950 p-4">
@@ -650,7 +650,7 @@ export default function DocsPage() {
                     className="rounded accent-emerald-500"
                   />
                   <span>
-                    {language === "en" ? "Enable Cross-Encoder Re-Ranking" : "Aktifkan Cross-Encoder Re-Ranking"}
+                    {language === "en" ? "Enable Lexical Re-Ranking" : "Aktifkan Re-Ranking Leksikal"}
                   </span>
                 </label>
 

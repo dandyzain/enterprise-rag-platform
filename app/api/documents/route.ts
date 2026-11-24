@@ -1,33 +1,26 @@
-import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { apiRoute } from "@/lib/api/route";
+import { canWriteKb, listVisibleKnowledgeBases, loadReadableKb } from "@/lib/api/access";
+import { idSchema, parseWith } from "@/lib/api/schemas";
 
-export async function GET(req: NextRequest) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const kbId = searchParams.get("kbId") || "default-kb-1";
+export const GET = apiRoute(async (ctx) => {
+  const kbId = parseWith(idSchema, ctx.req.nextUrl.searchParams.get("kbId") || "default-kb-1");
+  const kb = await loadReadableKb(ctx.actor, kbId);
 
-    const [documents, stats, knowledgeBases] = await Promise.all([
-      db.getDocumentsByKb(kbId),
-      db.getStorageStats(kbId),
-      db.getKnowledgeBases(),
-    ]);
+  const [documents, stats, knowledgeBases] = await Promise.all([
+    db.listDocuments(kb.id),
+    db.getStorageStats(kb.id),
+    listVisibleKnowledgeBases(ctx.actor, kb),
+  ]);
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        documents,
-        stats,
-        knowledgeBases,
-      },
-    });
-  } catch (error) {
-    console.error("[API Documents] Failed to fetch documents:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Gagal memuat daftar dokumen.",
-      },
-      { status: 500 }
-    );
-  }
-}
+  return ctx.json({
+    success: true,
+    data: {
+      documents,
+      stats,
+      knowledgeBases,
+      knowledgeBase: { ...kb, canWrite: canWriteKb(ctx.actor, kb) },
+      storage: { mode: db.mode, persistent: db.mode === "postgres" },
+    },
+  });
+});

@@ -23,6 +23,13 @@ const META_PATTERNS = [
   /^tidak ditemukan/i,
   /^semoga informasi/i,
   /^salam/i,
+  /^based on a search/i,
+  /^according to/i,
+  /^these are the most relevant/i,
+  /^demo mode/i,
+  /^_?mode demo/i,
+  /^sorry, no information/i,
+  /^click citation/i,
 ];
 
 function extractClaimSentences(text: string): string[] {

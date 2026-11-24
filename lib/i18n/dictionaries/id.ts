@@ -119,7 +119,7 @@ export const idDictionary: TranslationDictionary = {
     compRow1Cortex: "BM25 + Dense RRF (100% kecocokan tepat)",
     compRow2Title: "Re-Ranking Kandidat",
     compRow2Naive: "Hanya jarak kosinus mentah",
-    compRow2Cortex: "Cross-Encoder Dua Tahap Top-15",
+    compRow2Cortex: "Re-ranker Leksikal Dua Tahap (Top-15)",
     compRow3Title: "Verifikasi Halusinasi",
     compRow3Naive: "Tanpa verifikasi faktualitas",
     compRow3Cortex: "Auditor kalimat (Skor Groundedness 0-100%)",
@@ -354,7 +354,7 @@ export const idDictionary: TranslationDictionary = {
       queryPlaceholder: "Masukkan kata kunci atau pertanyaan bahasa alami...",
       thresholdLabel: "Ambang Batas Kemiripan",
       topKLabel: "Jumlah Kandidat (Top-K)",
-      rerankerLabel: "Re-ranker Cross-Encoder Dua Tahap",
+      rerankerLabel: "Re-ranker Leksikal Dua Tahap",
       searchButton: "Jalankan Pencarian",
       searching: "Mencari...",
       resultsFound: "Potongan Ditemukan",
@@ -385,7 +385,7 @@ export const idDictionary: TranslationDictionary = {
       topKLabel: "Jumlah Kandidat Top-K",
       topKDesc:
         "Jumlah potongan dokumen paling relevan yang dimasukkan ke konteks grounding LLM.",
-      rerankLabel: "Re-ranking Cross-Encoder Dua Tahap",
+      rerankLabel: "Re-ranking Leksikal Dua Tahap",
       rerankDesc:
         "Skor ulang kandidat awal dense & sparse dengan kecocokan frasa dan cakupan kata kunci.",
       providerLabel: "Penyedia Model Inferensi",

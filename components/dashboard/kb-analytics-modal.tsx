@@ -146,7 +146,7 @@ export function KbAnalyticsModal({
               Two-Stage Re-Ranking Engine
             </span>
             <Badge variant="ready" className="text-[10px]">
-              Cross-Encoder Top-15
+              Lexical Re-ranker Top-15
             </Badge>
           </div>
         </div>

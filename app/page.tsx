@@ -338,7 +338,7 @@ function HomeContent() {
           >
             <Sparkles className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
           </m.span>
-          <span className="truncate hidden sm:inline">Next.js 16 • Hybrid BM25 & Dense RRF • Cross-Encoder Re-Ranking</span>
+          <span className="truncate hidden sm:inline">Next.js 16 • Hybrid BM25 & Dense RRF • Lexical Re-Ranking</span>
           <span className="truncate sm:hidden">Next.js 16 • Hybrid RAG • Re-Ranking</span>
         </m.div>
 
@@ -540,7 +540,7 @@ function HomeContent() {
                         {t.landing.retrievedPassages} ({testResults.length})
                       </span>
                       <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400">
-                        Two-Stage Cross-Encoder Ranked
+                        Two-Stage Lexical Re-ranked
                       </span>
                     </m.div>
 

@@ -1,125 +1,54 @@
-import { NextRequest, NextResponse } from "next/server";
+import { apiRoute, ApiError, ApiContext, readJson } from "@/lib/api/route";
+import { loadReadableKb } from "@/lib/api/access";
+import { parseWith, SearchSchema } from "@/lib/api/schemas";
 import { performSemanticSearch } from "@/lib/rag/search";
-import { z } from "zod";
+import { RATE_LIMITS } from "@/lib/ratelimit";
 
-const SearchQuerySchema = z.object({
-  query: z.string().min(1, "Query pencarian tidak boleh kosong"),
-  knowledgeBaseId: z.string().default("default-kb-1"),
-  searchMode: z.enum(["hybrid", "semantic", "keyword"]).default("hybrid"),
-  threshold: z.number().min(0.1).max(1.0).default(0.65),
-  topK: z.number().min(1).max(20).default(5),
-  filterDocumentIds: z.array(z.string()).optional(),
-  enableReranking: z.boolean().default(true),
+async function runSearch(ctx: ApiContext, input: unknown) {
+  const startTime = Date.now();
+  const rateHeaders = await ctx.rateLimit("search", RATE_LIMITS.search);
+  const params = parseWith(SearchSchema, input);
+  const kb = await loadReadableKb(ctx.actor, params.knowledgeBaseId);
+
+  const result = await performSemanticSearch({
+    knowledgeBaseId: kb.id,
+    query: params.query,
+    searchMode: params.searchMode,
+    threshold: params.threshold,
+    topK: params.topK,
+    filterDocumentIds: params.filterDocumentIds,
+    enableReranking: params.enableReranking,
+  });
+
+  return ctx.json(
+    {
+      success: true,
+      data: {
+        query: result.query,
+        chunks: result.chunks,
+        citations: result.citations,
+        totalFound: result.chunks.length,
+        latencyMs: Date.now() - startTime,
+        appliedThreshold: params.threshold,
+        topK: params.topK,
+      },
+    },
+    { headers: rateHeaders }
+  );
+}
+
+export const POST = apiRoute(async (ctx) => runSearch(ctx, await readJson(ctx.req)));
+
+export const GET = apiRoute(async (ctx) => {
+  const sp = ctx.req.nextUrl.searchParams;
+  const query = sp.get("q") || sp.get("query") || "";
+  if (!query.trim()) throw new ApiError("QUERY_REQUIRED", 400);
+  return runSearch(ctx, {
+    query,
+    knowledgeBaseId: sp.get("knowledgeBaseId") || sp.get("kb") || undefined,
+    searchMode: sp.get("searchMode") || undefined,
+    threshold: sp.get("threshold") ?? undefined,
+    topK: sp.get("topK") ?? undefined,
+    enableReranking: sp.get("rerank") === "false" ? false : true,
+  });
 });
-
-export async function POST(req: NextRequest) {
-  const startTime = Date.now();
-  try {
-    const body = await req.json();
-    const validation = SearchQuerySchema.safeParse(body);
-
-    if (!validation.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Validasi parameter gagal",
-          details: validation.error.flatten(),
-        },
-        { status: 400 }
-      );
-    }
-
-    const {
-      query,
-      knowledgeBaseId,
-      searchMode,
-      threshold,
-      topK,
-      filterDocumentIds,
-      enableReranking,
-    } = validation.data;
-
-    const result = await performSemanticSearch({
-      knowledgeBaseId,
-      query,
-      searchMode,
-      threshold,
-      topK,
-      filterDocumentIds,
-      enableReranking,
-    });
-
-    const latencyMs = Date.now() - startTime;
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        query: result.query,
-        chunks: result.chunks,
-        citations: result.citations,
-        totalFound: result.chunks.length,
-        latencyMs,
-        appliedThreshold: threshold,
-        topK,
-      },
-    });
-  } catch (error: unknown) {
-    const err = error as Error;
-    console.error("[API Search] Direct semantic search error:", err);
-    return NextResponse.json(
-      { success: false, error: err.message || "Gagal melakukan pencarian semantik." },
-      { status: 500 }
-    );
-  }
-}
-
-export async function GET(req: NextRequest) {
-  const startTime = Date.now();
-  try {
-    const { searchParams } = new URL(req.url);
-    const query = searchParams.get("q") || searchParams.get("query") || "";
-    const knowledgeBaseId = searchParams.get("knowledgeBaseId") || searchParams.get("kb") || "default-kb-1";
-    const searchMode = (searchParams.get("searchMode") || "hybrid") as "hybrid" | "semantic" | "keyword";
-    const threshold = parseFloat(searchParams.get("threshold") || "0.65");
-    const topK = parseInt(searchParams.get("topK") || "5", 10);
-
-    if (!query.trim()) {
-      return NextResponse.json(
-        { success: false, error: "Parameter 'q' atau 'query' wajib diisi." },
-        { status: 400 }
-      );
-    }
-
-    const result = await performSemanticSearch({
-      knowledgeBaseId,
-      query,
-      searchMode,
-      threshold,
-      topK,
-      enableReranking: true,
-    });
-
-    const latencyMs = Date.now() - startTime;
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        query: result.query,
-        chunks: result.chunks,
-        citations: result.citations,
-        totalFound: result.chunks.length,
-        latencyMs,
-        appliedThreshold: threshold,
-        topK,
-      },
-    });
-  } catch (error: unknown) {
-    const err = error as Error;
-    console.error("[API Search GET] Direct search error:", err);
-    return NextResponse.json(
-      { success: false, error: err.message || "Gagal melakukan pencarian semantik." },
-      { status: 500 }
-    );
-  }
-}
-

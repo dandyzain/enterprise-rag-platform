@@ -1,63 +1,55 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { aiConfig, isAuthConfigured } from "@/lib/env";
+import { chatModelId } from "@/lib/ai/models";
+import { getEmbeddingModelId } from "@/lib/rag/embedder";
+import { rateLimitBackend } from "@/lib/ratelimit";
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const isPostgres = db.mode === "postgres";
+  let healthy = true;
+  let metrics: { knowledgeBases: number; documents: number; chunks: number } | null = null;
   try {
-    const kbs = await db.getKnowledgeBases();
-    let totalDocs = 0;
-    let totalChunks = 0;
+    await db.ping();
+    metrics = await db.getGlobalStats();
+  } catch (err) {
+    healthy = false;
+    console.error("[API Health] Storage check failed:", err);
+  }
 
-    for (const kb of kbs) {
-      const docs = await db.getDocumentsByKb(kb.id);
-      totalDocs += docs.length;
-      totalChunks += docs.reduce((acc, d) => acc + (d.chunkCount || 0), 0);
-    }
+  const chatProviders = [
+    aiConfig.hasServerOpenAI() ? `openai:${chatModelId("openai")}` : null,
+    aiConfig.hasServerGoogle() ? `google:${chatModelId("google")}` : null,
+  ].filter(Boolean);
 
-    const isPostgres = Boolean(process.env.DATABASE_URL);
-    const embeddingProvider = process.env.OPENAI_API_KEY
-      ? "OpenAI (text-embedding-3-small)"
-      : process.env.GOOGLE_GENERATIVE_AI_API_KEY
-      ? "Google Gemini (text-embedding-004)"
-      : "Deterministic High-Dim Unit Hashing (1536-dim)";
-
-    return NextResponse.json({
-      success: true,
-      status: "HEALTHY",
+  return NextResponse.json(
+    {
+      success: healthy,
+      status: healthy ? "HEALTHY" : "DEGRADED",
       timestamp: new Date().toISOString(),
       uptimeSeconds: Math.floor(process.uptime()),
       system: {
-        database: {
-          engine: isPostgres ? "PostgreSQL + pgvector" : "High-Performance In-Memory Store",
-          indexing: isPostgres ? "HNSW Index (vector_cosine_ops)" : "Exact Cosine Distance",
-          connected: true,
+        storage: {
+          engine: isPostgres ? "PostgreSQL + pgvector" : "In-memory (demo, not persistent)",
+          persistent: isPostgres,
+          indexing: isPostgres ? "HNSW (vector_cosine_ops) + GIN full-text" : "Exact cosine + BM25",
+          connected: healthy,
         },
-        embedding: {
-          provider: embeddingProvider,
-          dimensions: 1536,
-          batchSupport: true,
-        },
+        embedding: { model: getEmbeddingModelId(), dimensions: 1536 },
+        chat: { models: chatProviders, offlineFallback: chatProviders.length === 0 },
+        auth: { configured: isAuthConfigured() },
+        rateLimiting: { backend: rateLimitBackend() },
         pipeline: {
-          recursiveChunking: "500-700 tokens (100 token overlap)",
-          searchEngine: "Hybrid RRF (Dense Cosine + Sparse BM25 k=60)",
-          reRankingEngine: "Two-Stage Cross-Encoder (Top-15 to Top-K)",
-          complianceAuditor: "Sentence-by-Sentence Groundedness & Anti-Hallucination",
+          chunking: "Recursive, ~600 tokens with 100 token overlap",
+          retrieval: "Hybrid RRF (dense cosine + sparse keyword, k=60)",
+          reranking: "Two-stage lexical re-ranker (heuristic)",
+          groundedness: "Heuristic sentence-level citation audit",
         },
       },
-      metrics: {
-        totalKnowledgeBases: kbs.length,
-        totalDocuments: totalDocs,
-        totalChunks,
-      },
-    });
-  } catch (error: any) {
-    console.error("[API Health] error:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        status: "DEGRADED",
-        error: error.message || "Gagal memeriksa kesehatan sistem.",
-      },
-      { status: 500 }
-    );
-  }
+      metrics,
+    },
+    { status: healthy ? 200 : 503, headers: { "Cache-Control": "no-store" } }
+  );
 }

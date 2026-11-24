@@ -1,119 +1,60 @@
-import { NextRequest, NextResponse } from "next/server";
+import { db, SYSTEM_OWNER_ID } from "@/lib/db";
+import { apiRoute, ApiError } from "@/lib/api/route";
+import { loadWritableKb } from "@/lib/api/access";
+import { idSchema, parseWith } from "@/lib/api/schemas";
 import { ingestDocument } from "@/lib/rag/ingest";
-import { getSessionFromRequest } from "@/lib/auth/session";
-import { PLAN_QUOTAS } from "@/lib/ratelimit";
-import { db } from "@/lib/db";
-import { z } from "zod";
+import { resolveUploadMimeType, sanitizeFilename } from "@/lib/rag/file-types";
+import { getPlanQuota, RATE_LIMITS } from "@/lib/ratelimit";
 
-export const maxDuration = 60; // Allow sufficient time for large document parsing and embeddings
+export const maxDuration = 60;
 
-const IngestFormSchema = z.object({
-  knowledgeBaseId: z.string().min(1, "Knowledge Base ID is required"),
-});
+export const POST = apiRoute(async (ctx) => {
+  const user = ctx.requireUser();
+  await ctx.rateLimit("ingest", RATE_LIMITS.ingest);
 
-export async function POST(req: NextRequest) {
-  try {
-    const user = getSessionFromRequest(req);
-    const plan = user?.plan || "FREE";
-    const quota = PLAN_QUOTAS[plan] || PLAN_QUOTAS.FREE;
+  const formData = await ctx.req.formData();
+  const file = formData.get("file");
+  const kbId = parseWith(idSchema, (formData.get("knowledgeBaseId") as string | null) || "default-kb-1");
+  if (!(file instanceof File)) throw new ApiError("FILE_REQUIRED", 400);
 
-    const formData = await req.formData();
-    const file = formData.get("file") as File | null;
-    const rawKbId = formData.get("knowledgeBaseId") as string | null;
+  const kb = await loadWritableKb(ctx.actor, kbId);
+  const quota = getPlanQuota(user.plan);
 
-    const validation = IngestFormSchema.safeParse({
-      knowledgeBaseId: rawKbId || "default-kb-1",
+  const filename = sanitizeFilename(file.name);
+  const mimeType = resolveUploadMimeType(filename);
+  if (!mimeType) throw new ApiError("FILE_TYPE", 400);
+
+  if (file.size > quota.maxFileSizeMb * 1024 * 1024) {
+    throw new ApiError("FILE_TOO_LARGE", 413, {
+      size: (file.size / (1024 * 1024)).toFixed(1),
+      plan: user.plan,
+      limit: quota.maxFileSizeMb,
     });
-
-    if (!validation.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Validasi parameter gagal",
-          details: validation.error.flatten(),
-        },
-        { status: 400 }
-      );
-    }
-
-    if (!file) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "File wajib dilampirkan dalam format multipart/form-data (field: 'file').",
-        },
-        { status: 400 }
-      );
-    }
-
-    // 1. Quota Check: Document count limit
-    const existingDocs = await db.getDocumentsByKb(validation.data.knowledgeBaseId);
-    if (existingDocs.length >= quota.maxDocuments) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Batas kuota dokumen tercapai (${existingDocs.length}/${quota.maxDocuments} dokumen pada paket ${plan}). Harap beralih ke paket PRO atau hapus dokumen lama.`,
-        },
-        { status: 403 }
-      );
-    }
-
-    // Validate file type
-    const validExtensions = [".pdf", ".txt", ".md", ".json", ".csv"];
-    const isExtensionValid = validExtensions.some((ext) =>
-      file.name.toLowerCase().endsWith(ext)
-    );
-
-    if (!isExtensionValid && !file.type.includes("pdf") && !file.type.includes("text")) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Tipe file tidak didukung. Harap unggah format PDF, TXT, MD, atau CSV. Diterima: ${file.type || file.name}`,
-        },
-        { status: 400 }
-      );
-    }
-
-    // 2. Quota Check: Max file size based on plan
-    const maxBytes = quota.maxFileSizeMb * 1024 * 1024;
-    if (file.size > maxBytes) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Ukuran file (${(file.size / (1024 * 1024)).toFixed(1)}MB) melebihi batas paket ${plan} (${quota.maxFileSizeMb}MB).`,
-        },
-        { status: 413 }
-      );
-    }
-
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    const result = await ingestDocument({
-      knowledgeBaseId: validation.data.knowledgeBaseId,
-      filename: file.name,
-      mimeType: file.type || "application/octet-stream",
-      fileBuffer: buffer,
-      fileSize: file.size,
-    });
-
-    return NextResponse.json(
-      {
-        success: true,
-        message: `File "${file.name}" berhasil dianalisis, dipecah menjadi ${result.totalChunks} chunks, dan diindeks ke dalam vector store.`,
-        data: result,
-      },
-      { status: 201 }
-    );
-  } catch (err: unknown) {
-    const error = err as Error;
-    console.error("[API Ingest] Terjadi kesalahan fatal:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "Gagal memproses dan mengindeks dokumen.",
-      },
-      { status: 500 }
-    );
   }
-}
+
+  // Document quota is per account (across all of the owner's knowledge bases).
+  if (kb.userId !== SYSTEM_OWNER_ID) {
+    const count = await db.countDocumentsByOwner(kb.userId);
+    if (count >= quota.maxDocuments) {
+      throw new ApiError("DOC_LIMIT", 403, { count, limit: quota.maxDocuments, plan: user.plan });
+    }
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const result = await ingestDocument({
+    knowledgeBaseId: kb.id,
+    filename,
+    mimeType,
+    fileBuffer: buffer,
+    fileSize: buffer.length,
+  });
+
+  return ctx.json(
+    {
+      success: true,
+      message: ctx.t("DOC_INDEXED", { name: filename, chunks: result.totalChunks }),
+      data: result,
+    },
+    { status: 201 }
+  );
+});

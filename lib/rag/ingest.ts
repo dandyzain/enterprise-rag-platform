@@ -1,10 +1,11 @@
 import { db } from "@/lib/db";
-import { parseDocumentBuffer } from "./parser";
+import { ApiError } from "@/lib/api/route";
+import { DocumentParseError, parseDocumentBuffer } from "./parser";
 import { chunkDocumentPages } from "./chunker";
-import { getBatchEmbeddings } from "./embedder";
+import { EmbeddingError, getBatchEmbeddings } from "./embedder";
 import { validateBinaryFile } from "./validator";
 import { sanitizeDocumentText } from "./sanitizer";
-import { IngestionResult } from "./types";
+import { DocumentItem, IngestionResult } from "./types";
 
 export interface IngestDocumentParams {
   knowledgeBaseId: string;
@@ -12,44 +13,84 @@ export interface IngestDocumentParams {
   mimeType: string;
   fileBuffer: Buffer;
   fileSize: number;
-  fileUrl?: string;
+  /** Store the original file for download / re-indexing (default true). */
+  storeOriginal?: boolean;
 }
 
+const CHUNKING = { maxTokens: 600, overlapTokens: 100, separators: ["\n\n", "\n", " ", ""] };
+
 /**
- * Orchestrates the full ingestion pipeline:
- * 0. Binary magic bytes validation
- * 1. Document record creation (PROCESSING)
- * 2. PDF / Text Parsing & Page splitting
- * 3. PII & Secret Redaction (Sanitization)
- * 4. Recursive chunking with overlap & page metadata
- * 5. Batch vector embedding generation
- * 6. Vector database persistence (pgvector HNSW)
- * 7. Document status update (INDEXED / FAILED)
+ * Parse -> redact PII -> chunk -> embed -> persist. Shared by upload and re-index.
+ * Throws ApiError with a user-facing code for expected failures.
  */
-export async function ingestDocument(
-  params: IngestDocumentParams
-): Promise<IngestionResult> {
-  const startTime = Date.now();
-  const {
-    knowledgeBaseId,
-    filename,
-    mimeType,
-    fileBuffer,
-    fileSize,
-    fileUrl = `/uploads/${encodeURIComponent(filename)}`,
-  } = params;
-
-  // Step 0: Security & Binary Magic Byte Validation
-  const fileValidation = validateBinaryFile(fileBuffer, mimeType);
-  if (!fileValidation.valid) {
-    throw new Error(fileValidation.error || "Validasi keamanan struktur berkas gagal.");
+async function indexBuffer(
+  document: DocumentItem,
+  fileBuffer: Buffer,
+  mimeType: string
+): Promise<{ totalChunks: number; pages: number }> {
+  let parsed;
+  try {
+    parsed = await parseDocumentBuffer(fileBuffer, document.title, mimeType);
+  } catch (err) {
+    if (err instanceof DocumentParseError) throw new ApiError("FILE_NO_TEXT", 422);
+    throw err;
   }
+  if (parsed.fullText.trim().length === 0) throw new ApiError("FILE_NO_TEXT", 422);
 
-  // Step 1: Create initial document record with PROCESSING status
+  const sanitizedPages = parsed.pages.map((p) => ({ ...p, text: sanitizeDocumentText(p.text).sanitizedText }));
+  const chunks = chunkDocumentPages(sanitizedPages, CHUNKING);
+  if (chunks.length === 0) throw new ApiError("FILE_NO_TEXT", 422);
+
+  const totalChunks = await embedAndStore(
+    document.id,
+    chunks.map((c) => ({ content: c.content, chunkIndex: c.chunkIndex, pageNumber: c.pageNumber }))
+  );
+  return { totalChunks, pages: parsed.totalPages };
+}
+
+async function embedAndStore(
+  documentId: string,
+  chunks: Array<{ content: string; chunkIndex: number; pageNumber: number | null }>
+): Promise<number> {
+  let embedded;
+  try {
+    embedded = await getBatchEmbeddings(chunks.map((c) => c.content));
+  } catch (err) {
+    if (err instanceof EmbeddingError) {
+      console.error("[Ingestion] Embedding provider failed:", err.cause ?? err);
+      throw new ApiError("EMBEDDING_FAILED", 502);
+    }
+    throw err;
+  }
+  await db.replaceChunks(
+    documentId,
+    chunks.map((c, i) => ({ ...c, embedding: embedded.embeddings[i] }))
+  );
+  await db.updateDocument(documentId, {
+    status: "INDEXED",
+    chunkCount: chunks.length,
+    embeddingModel: embedded.model,
+  });
+  return chunks.length;
+}
+
+export function validateUpload(fileBuffer: Buffer, mimeType: string): void {
+  const validation = validateBinaryFile(fileBuffer, mimeType);
+  if (!validation.valid) {
+    throw new ApiError(validation.code ?? "FILE_TYPE", 400);
+  }
+}
+
+export async function ingestDocument(params: IngestDocumentParams): Promise<IngestionResult> {
+  const startTime = Date.now();
+  const { knowledgeBaseId, filename, mimeType, fileBuffer, fileSize, storeOriginal = true } = params;
+
+  validateUpload(fileBuffer, mimeType);
+
   const document = await db.createDocument({
     knowledgeBaseId,
     title: filename,
-    fileUrl,
+    fileUrl: "",
     fileType: mimeType,
     fileSize,
     status: "PROCESSING",
@@ -57,66 +98,57 @@ export async function ingestDocument(
   });
 
   try {
-    // Step 2: Parse PDF / Text buffer into pages
-    const parsed = await parseDocumentBuffer(fileBuffer, filename, mimeType);
-
-    if (parsed.fullText.trim().length === 0) {
-      throw new Error("Dokumen kosong atau teks tidak dapat diekstraksi dari file ini.");
+    if (storeOriginal) {
+      await db.saveDocumentFile(document.id, { buffer: fileBuffer, mimeType });
+      await db.updateDocument(document.id, { fileUrl: `/api/documents/${document.id}/file` });
     }
-
-    // Step 2.5: PII & Secret Sanitization
-    const sanitizedPages = parsed.pages.map((p) => {
-      const sanitized = sanitizeDocumentText(p.text);
-      return {
-        ...p,
-        text: sanitized.sanitizedText,
-      };
-    });
-
-    // Step 3: Recursive chunking (500-700 tokens, 100 token overlap)
-    const chunks = chunkDocumentPages(sanitizedPages, {
-      maxTokens: 600,
-      overlapTokens: 100,
-      separators: ["\n\n", "\n", " ", ""],
-    });
-
-    if (chunks.length === 0) {
-      throw new Error("Gagal menghasilkan potongan teks (chunks) yang valid dari dokumen.");
-    }
-
-    // Step 4: Batch Vector Embedding Generation
-    const chunkTexts = chunks.map((c) => c.content);
-    const embeddings = await getBatchEmbeddings(chunkTexts);
-
-    // Step 5: Save chunks with embeddings into database
-    const chunkRecords = chunks.map((c, i) => ({
-      documentId: document.id,
-      content: c.content,
-      chunkIndex: c.chunkIndex,
-      pageNumber: c.pageNumber,
-      embedding: embeddings[i],
-    }));
-
-    await db.insertChunks(chunkRecords);
-
-    // Step 6: Mark document as INDEXED
-    await db.updateDocumentStatus(document.id, "INDEXED", chunks.length);
-
-    const processingTimeMs = Date.now() - startTime;
-
+    const { totalChunks, pages } = await indexBuffer(document, fileBuffer, mimeType);
     return {
       documentId: document.id,
       title: filename,
       fileSize,
       fileType: mimeType,
-      totalChunks: chunks.length,
-      pages: parsed.totalPages,
+      totalChunks,
+      pages,
       status: "INDEXED",
-      processingTimeMs,
+      processingTimeMs: Date.now() - startTime,
     };
   } catch (error) {
-    console.error(`[Ingestion Pipeline] Error processing ${filename}:`, error);
-    await db.updateDocumentStatus(document.id, "FAILED", 0);
+    console.error(`[Ingestion] Failed to index "${filename}":`, error);
+    await db.updateDocument(document.id, { status: "FAILED", chunkCount: 0 }).catch(() => undefined);
     throw error;
   }
+}
+
+/**
+ * Re-index a document with the current embedding model: from the stored
+ * original file when available, otherwise by re-embedding the existing chunks.
+ */
+export async function reindexDocument(document: DocumentItem): Promise<{ totalChunks: number }> {
+  await db.updateDocument(document.id, { status: "PROCESSING" });
+  try {
+    const file = await db.getDocumentFile(document.id);
+    if (file) {
+      const { totalChunks } = await indexBuffer(document, file.buffer, file.mimeType);
+      return { totalChunks };
+    }
+    const existing = await db.getDocumentChunks(document.id);
+    if (existing.length === 0) throw new ApiError("NO_ORIGINAL_FILE", 409);
+    const totalChunks = await embedAndStore(
+      document.id,
+      existing.map((c) => ({ content: c.content, chunkIndex: c.chunkIndex, pageNumber: c.pageNumber }))
+    );
+    return { totalChunks };
+  } catch (error) {
+    await db.updateDocument(document.id, { status: "FAILED" }).catch(() => undefined);
+    throw error;
+  }
+}
+
+/** Index pre-chunked text (used when restoring a backup). */
+export async function indexExistingChunks(
+  documentId: string,
+  chunks: Array<{ content: string; chunkIndex: number; pageNumber: number | null }>
+): Promise<number> {
+  return embedAndStore(documentId, chunks);
 }

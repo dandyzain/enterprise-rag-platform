@@ -1,3 +1,10 @@
+export class DocumentParseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DocumentParseError";
+  }
+}
+
 export interface ExtractedPage {
   pageNumber: number;
   text: string;
@@ -62,15 +69,9 @@ export async function parseDocumentBuffer(
         pages,
       };
     } catch (pdfErr) {
-      console.error("[Parser] PDF parsing with PDFParse failed, attempting fallback:", pdfErr);
-      // Fallback: extract printable strings from buffer
-      const rawText = cleanExtractedText(buffer.toString("utf-8"));
-      return {
-        title: filename,
-        totalPages: 1,
-        fullText: rawText,
-        pages: [{ pageNumber: 1, text: rawText }],
-      };
+      // Never index raw binary bytes as "text": surface the failure instead.
+      console.error("[Parser] PDF parsing failed:", pdfErr);
+      throw new DocumentParseError("PDF text extraction failed");
     }
   }
 
