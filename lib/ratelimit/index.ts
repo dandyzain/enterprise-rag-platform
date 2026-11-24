@@ -27,6 +27,8 @@ export interface RateLimitRule {
 export const RATE_LIMITS = {
   /** Brute-force protection for sign-in, per IP and per e-mail. */
   login: { limit: 10, windowSeconds: 15 * 60 },
+  /** Demo profiles have no password to guess; this only curbs automated abuse. */
+  demoLogin: { limit: 60, windowSeconds: 15 * 60 },
   register: { limit: 5, windowSeconds: 60 * 60 },
   search: { limit: 120, windowSeconds: 60 * 60 },
   ingest: { limit: 30, windowSeconds: 60 * 60 },

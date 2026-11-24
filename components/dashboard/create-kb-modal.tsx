@@ -5,6 +5,7 @@ import { X, Layers, Check, Upload, FileJson, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useLanguage } from "@/lib/i18n/context";
+import { fmt } from "@/lib/i18n/format";
 
 interface CreateKbModalProps {
   isOpen: boolean;
@@ -44,17 +45,17 @@ export function CreateKbModal({ isOpen, onClose, onCreated }: CreateKbModalProps
 
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json.error || "Gagal membuat Knowledge Base");
+        throw new Error(json.error || t.toasts.kbCreateFailed);
       }
 
-      toast.success(`Knowledge Base "${json.data.name}" created successfully!`);
+      toast.success(json.message || fmt(t.toasts.kbCreated, { name: json.data.name }));
       onCreated(json.data.id);
       setName("");
       setDescription("");
       onClose();
     } catch (err: unknown) {
       const error = err as Error;
-      toast.error(error.message || "Failed to create Knowledge Base.");
+      toast.error(error.message || t.toasts.kbCreateFailed);
     } finally {
       setIsSubmitting(false);
     }
@@ -77,10 +78,10 @@ export function CreateKbModal({ isOpen, onClose, onCreated }: CreateKbModalProps
         totalDocs: Array.isArray(parsed.documents) ? parsed.documents.length : 0,
         exportedAt: parsed.exportedAt || new Date().toISOString(),
       });
-      toast.success(`Backup archive "${file.name}" ready to restore.`);
+      toast.success(fmt(t.toasts.backupReady, { name: file.name }));
     } catch (err: unknown) {
       const error = err as Error;
-      toast.error(error.message || "Failed to read backup JSON.");
+      toast.error(error.message || t.toasts.backupReadFailed);
       setBackupFile(null);
       setBackupPreview(null);
     }
@@ -95,7 +96,7 @@ export function CreateKbModal({ isOpen, onClose, onCreated }: CreateKbModalProps
       const formData = new FormData();
       formData.append("file", backupFile);
 
-      toast.info("Restoring Knowledge Base and re-indexing vectors...");
+      toast.info(t.toasts.restoring);
 
       const res = await fetch("/api/knowledge-bases/import", {
         method: "POST",
@@ -107,14 +108,14 @@ export function CreateKbModal({ isOpen, onClose, onCreated }: CreateKbModalProps
         throw new Error(json.error || "Failed to import Knowledge Base.");
       }
 
-      toast.success(json.message || "Knowledge Base restored successfully!");
+      toast.success(json.message);
       if (json.data?.knowledgeBase?.id) {
         onCreated(json.data.knowledgeBase.id);
       }
       onClose();
     } catch (err: unknown) {
       const error = err as Error;
-      toast.error(error.message || "Failed to restore backup archive.");
+      toast.error(error.message || t.toasts.restoreFailed);
     } finally {
       setIsSubmitting(false);
     }
@@ -134,6 +135,7 @@ export function CreateKbModal({ isOpen, onClose, onCreated }: CreateKbModalProps
             </h3>
           </div>
           <button
+            aria-label={t.common.close}
             onClick={onClose}
             className="rounded-full p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer"
           >

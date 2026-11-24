@@ -31,8 +31,8 @@ export function generateGroundedFallbackResponse(
     .join("\n\n");
 
   return isId
-    ? `Berdasarkan pencarian pada dokumen di Knowledge Base Anda, berikut kutipan yang paling relevan:\n\n${points}\n\n_Mode demo: tidak ada API key model bahasa yang dikonfigurasi, jadi jawaban ini berupa kutipan langsung. Klik sitasi [1], [2], atau [3] untuk melihat paragraf aslinya._`
-    : `Based on a search of the documents in your knowledge base, these are the most relevant passages:\n\n${points}\n\n_Demo mode: no language-model API key is configured, so this answer quotes the sources directly. Click citation [1], [2] or [3] to view the original passage._`;
+    ? `Berdasarkan pencarian pada dokumen di Knowledge Base Anda, berikut kutipan yang paling relevan:\n\n${points}\n\nMode demo: tidak ada API key model bahasa yang dikonfigurasi, jadi jawaban ini berupa kutipan langsung. Klik sitasi untuk melihat paragraf aslinya.`
+    : `Based on a search of the documents in your knowledge base, these are the most relevant passages:\n\n${points}\n\nDemo mode: no language-model API key is configured, so this answer quotes the sources directly. Click a citation to view the original passage.`;
 }
 
 const DEFAULT_TITLE_PATTERNS = [/^obrolan\b/i, /^chat\b/i, /^new chat/i, /^percakapan baru/i, /^sesi\b/i, /^session\b/i];

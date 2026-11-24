@@ -29,7 +29,9 @@ const META_PATTERNS = [
   /^demo mode/i,
   /^_?mode demo/i,
   /^sorry, no information/i,
-  /^click citation/i,
+  /^click (a )?citation/i,
+  /^klik sitasi/i,
+  /^berdasarkan pencarian/i,
 ];
 
 function extractClaimSentences(text: string): string[] {
@@ -48,7 +50,8 @@ function extractClaimSentences(text: string): string[] {
       if (s.length < 15 || s.startsWith("---")) return false;
       // Skip meta conversation filler
       for (const pat of META_PATTERNS) {
-        if (pat.test(s) && !s.includes("[") && !s.includes('"') && !s.includes(":")) {
+        // Framing sentences without a citation marker are not factual claims.
+        if (pat.test(s) && !/\[\d+\]/.test(s)) {
           return false;
         }
       }

@@ -23,7 +23,6 @@ import {
   Check,
   Search,
   Activity,
-  Filter,
   ThumbsUp,
   ThumbsDown,
   HelpCircle,
@@ -41,6 +40,34 @@ import { toast } from "sonner";
 import { useTheme } from "@/components/providers/theme-provider";
 import { useLanguage } from "@/lib/i18n/context";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
+import { fmt } from "@/lib/i18n/format";
+import { useAuth } from "@/components/providers/auth-provider";
+
+// Minimal Web Speech API typings (not part of lib.dom for all browsers).
+interface SpeechRecognitionResultEventLike {
+  results: ArrayLike<ArrayLike<{ transcript: string }>>;
+}
+interface SpeechRecognitionLike {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onstart: (() => void) | null;
+  onresult: ((event: SpeechRecognitionResultEventLike) => void) | null;
+  onerror: ((event: { error: string }) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+}
+type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
+
+function parseHeaderJson<T>(raw: string | null): T | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(decodeURIComponent(raw)) as T;
+  } catch {
+    return null;
+  }
+}
 
 export interface MessageUI {
   id: string;
@@ -48,7 +75,9 @@ export interface MessageUI {
   content: string;
   citations?: CitationItem[];
   groundedness?: GroundednessReport | null;
-  feedback?: "like" | "dislike";
+  feedback?: "like" | "dislike" | null;
+  /** True when the message exists server-side (feedback can be persisted). */
+  persisted?: boolean;
 }
 
 interface ChatWorkspaceProps {
@@ -65,6 +94,8 @@ interface ChatWorkspaceProps {
   onOpenOnboarding?: () => void;
   initialPrompt?: string;
   onToggleMobileSidebar?: () => void;
+  /** Whether the viewer can upload into the current knowledge base. */
+  canWrite?: boolean;
 }
 
 export function ChatWorkspace({
@@ -81,9 +112,16 @@ export function ChatWorkspace({
   onOpenOnboarding,
   initialPrompt,
   onToggleMobileSidebar,
+  canWrite = false,
 }: ChatWorkspaceProps) {
   const { isDark, toggleTheme } = useTheme();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
+  const { user } = useAuth();
+
+  const handleOpenUpload = () => {
+    if (canWrite) onOpenUpload();
+    else toast.info(user ? t.toasts.readOnlyKb : t.toasts.signInToUpload);
+  };
   const [messages, setMessages] = React.useState<MessageUI[]>([]);
   const [input, setInput] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
@@ -92,18 +130,21 @@ export function ChatWorkspace({
   const [scopedDocumentId, setScopedDocumentId] = React.useState<string | null>(null);
   const [isListening, setIsListening] = React.useState(false);
   const [showMoreMenu, setShowMoreMenu] = React.useState(false);
-  const recognitionRef = React.useRef<any>(null);
+  const recognitionRef = React.useRef<SpeechRecognitionLike | null>(null);
   const messagesEndRef = React.useRef<HTMLDivElement | null>(null);
   const streamAccumulatorRef = React.useRef<string>("");
 
   const handleToggleVoice = () => {
     if (typeof window === "undefined") return;
 
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const speechWindow = window as unknown as {
+      SpeechRecognition?: SpeechRecognitionCtor;
+      webkitSpeechRecognition?: SpeechRecognitionCtor;
+    };
+    const SpeechRecognition = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      toast.info("Browser Anda tidak mendukung Web Speech Recognition. Silakan ketik pertanyaan secara manual.");
+      toast.info(t.toasts.speechUnsupported);
       return;
     }
 
@@ -115,28 +156,28 @@ export function ChatWorkspace({
 
     try {
       const recognition = new SpeechRecognition();
-      recognition.lang = "id-ID";
+      recognition.lang = locale === "id" ? "id-ID" : "en-US";
       recognition.continuous = false;
       recognition.interimResults = false;
 
       recognition.onstart = () => {
         setIsListening(true);
-        toast.info("Mendengarkan suara... Silakan sampaikan pertanyaan.");
+        toast.info(t.toasts.listening);
       };
 
-      recognition.onresult = (event: any) => {
+      recognition.onresult = (event) => {
         const transcript = event.results[0]?.[0]?.transcript;
         if (transcript) {
           setInput((prev) => (prev ? `${prev} ${transcript}` : transcript));
-          toast.success("Suara berhasil ditranskripsikan!");
+          toast.success(t.toasts.speechSuccess);
         }
       };
 
-      recognition.onerror = (event: any) => {
+      recognition.onerror = (event) => {
         console.warn("Speech recognition error:", event.error);
         setIsListening(false);
         if (event.error !== "no-speech") {
-          toast.error(`Kesalahan mikrofon: ${event.error}`);
+          toast.error(fmt(t.toasts.micError, { error: String(event.error) }));
         }
       };
 
@@ -147,17 +188,18 @@ export function ChatWorkspace({
       recognitionRef.current = recognition;
       recognition.start();
     } catch (e) {
-      console.error("Gagal memulai speech recognition:", e);
+      console.error("Failed to start speech recognition:", e);
       setIsListening(false);
-      toast.error("Gagal mengakses mikrofon peramban.");
+      toast.error(t.toasts.micAccessFailed);
     }
   };
 
-  React.useEffect(() => {
-    if (initialPrompt) {
-      setInput(initialPrompt);
-    }
-  }, [initialPrompt]);
+  // Pre-fill the composer when a sample prompt is chosen (adjust state during render).
+  const [appliedPrompt, setAppliedPrompt] = React.useState(initialPrompt);
+  if (initialPrompt !== appliedPrompt) {
+    setAppliedPrompt(initialPrompt);
+    if (initialPrompt) setInput(initialPrompt);
+  }
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -191,18 +233,21 @@ export function ChatWorkspace({
                 content: string;
                 citations?: CitationItem[];
                 groundedness?: GroundednessReport | null;
+                feedback?: "like" | "dislike" | null;
               }) => ({
                 id: m.id,
                 role: m.role.toLowerCase() as "user" | "assistant",
                 content: m.content,
                 citations: m.citations || undefined,
                 groundedness: m.groundedness || undefined,
+                feedback: m.feedback ?? null,
+                persisted: true,
               })
             )
           );
         }
       } catch (err) {
-        console.error("Gagal memuat pesan sesi:", err);
+        console.error("Failed to load session messages:", err);
       }
     })();
 
@@ -255,24 +300,25 @@ export function ChatWorkspace({
           topK: ragSettings.topK,
           enableReranking: ragSettings.enableReranking,
           filterDocumentIds: scopedDocumentId ? [scopedDocumentId] : undefined,
+          locale,
         }),
       });
 
       if (!response.ok) {
-        let errMsg = "Gagal memperoleh respons dari RAG engine.";
+        let errMsg = t.toasts.answerFailed;
         try {
           const errJson = await response.json();
           if (errJson.error) errMsg = errJson.error;
         } catch {}
 
         if (response.status === 429) {
-          toast.error("Batas Kuota Pertanyaan Tercapai");
+          toast.error(t.toasts.quotaReachedTitle);
           setMessages((prev) => [
             ...prev,
             {
               id: assistantMsgId,
               role: "assistant",
-              content: `⚠️ **Batas Kuota Pertanyaan Tercapai**\n\n${errMsg}\n\n💡 **Solusi Publik:** Anda dapat mengaktifkan fitur **Bring-Your-Own-Key (BYOK)** di menu **Pengaturan** (ikon gerigi di atas) dengan memasukkan OpenAI atau Gemini API key pribadi Anda untuk menikmati query tanpa batasan host.`,
+              content: `⚠️ **${t.toasts.quotaReachedTitle}**\n\n${errMsg}\n\n${t.toasts.quotaTip}`,
             },
           ]);
           setIsLoading(false);
@@ -288,9 +334,13 @@ export function ChatWorkspace({
       if (remainingHeader !== null) {
         const remaining = parseInt(remainingHeader, 10);
         if (!isNaN(remaining) && remaining <= 3 && remaining > 0) {
-          toast.warning(`Perhatian: Tersisa ${remaining} query pada kuota jam ini.`);
+          toast.warning(fmt(t.toasts.quotaLow, { remaining }));
         }
       }
+
+      // Server-side id of the stored answer (present when the chat belongs to a session)
+      const serverMessageId = response.headers.get("x-message-id");
+      const answerId = serverMessageId || assistantMsgId;
 
       // Parse citations and groundedness from headers if present
       const rawCitations = response.headers.get("x-citations");
@@ -304,28 +354,22 @@ export function ChatWorkspace({
       }
 
       const rawGroundedness = response.headers.get("x-groundedness");
-      let extractedGroundedness: GroundednessReport | null = null;
-      if (rawGroundedness) {
-        try {
-          extractedGroundedness = JSON.parse(decodeURIComponent(rawGroundedness));
-        } catch {
-          // ignore parsing error
-        }
-      }
+      const extractedGroundedness: GroundednessReport | null = parseHeaderJson<GroundednessReport>(rawGroundedness);
 
       setMessages((prev) => [
         ...prev,
         {
-          id: assistantMsgId,
+          id: answerId,
           role: "assistant",
           content: "",
           citations: extractedCitations,
           groundedness: extractedGroundedness,
+          persisted: Boolean(serverMessageId),
         },
       ]);
 
       const reader = response.body?.getReader();
-      if (!reader) throw new Error("Stream reader tidak tersedia.");
+      if (!reader) throw new Error(t.toasts.answerFailed);
 
       const decoder = new TextDecoder();
       streamAccumulatorRef.current = "";
@@ -340,7 +384,7 @@ export function ChatWorkspace({
 
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === assistantMsgId ? { ...m, content: currentText } : m
+            m.id === answerId ? { ...m, content: currentText } : m
           )
         );
       }
@@ -348,22 +392,22 @@ export function ChatWorkspace({
       // Evaluate groundedness on stream completion if not pre-computed in header
       const finalText = streamAccumulatorRef.current;
       if (!extractedGroundedness && extractedCitations.length > 0) {
-        extractedGroundedness = evaluateGroundedness(finalText, extractedCitations, []);
+        const computedGroundedness = evaluateGroundedness(finalText, extractedCitations, []);
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === assistantMsgId ? { ...m, groundedness: extractedGroundedness } : m
+            m.id === answerId ? { ...m, groundedness: computedGroundedness } : m
           )
         );
       }
     } catch (err: unknown) {
       const error = err as Error;
-      toast.error(error.message || "Gagal menghasilkan jawaban.");
+      toast.error(error.message || t.toasts.answerFailed);
       setMessages((prev) => [
         ...prev,
         {
           id: assistantMsgId,
           role: "assistant",
-          content: "Terjadi kesalahan saat memproses jawaban. Silakan coba lagi.",
+          content: t.toasts.answerError,
         },
       ]);
     } finally {
@@ -379,15 +423,17 @@ export function ChatWorkspace({
   };
 
   const handleCopyMessage = (msgId: string, content: string) => {
-    navigator.clipboard.writeText(content);
+    navigator.clipboard
+      .writeText(content)
+      .then(() => toast.success(t.toasts.copiedText))
+      .catch(() => toast.error(t.toasts.copyFailed));
     setCopiedMsgId(msgId);
-    toast.success("Teks disalin ke papan klip.");
     setTimeout(() => setCopiedMsgId(null), 2000);
   };
 
   const handleExportChat = () => {
     if (messages.length === 0) {
-      toast.info("Tidak ada percakapan untuk diekspor.");
+      toast.info(t.toasts.nothingToExport);
       return;
     }
 
@@ -414,12 +460,12 @@ export function ChatWorkspace({
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    toast.success("Percakapan berhasil diekspor sebagai Markdown (.md).");
+    toast.success(t.toasts.exportedMd);
   };
 
   const handleExportJson = () => {
     if (messages.length === 0) {
-      toast.info("Tidak ada percakapan untuk diekspor.");
+      toast.info(t.toasts.nothingToExport);
       return;
     }
 
@@ -449,18 +495,31 @@ export function ChatWorkspace({
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    toast.success("Percakapan berhasil diekspor sebagai JSON (.json).");
+    toast.success(t.toasts.exportedJson);
   };
 
-  const handleFeedback = (msgId: string, type: "like" | "dislike") => {
-    setMessages((prev) =>
-      prev.map((m) => (m.id === msgId ? { ...m, feedback: type } : m))
-    );
-    toast.success(
-      type === "like"
-        ? "Terima kasih! Umpan balik positif dicatat."
-        : "Terima kasih! Catatan evaluasi disimpan untuk peningkatan akurasi."
-    );
+  const handleFeedback = async (msgId: string, type: "like" | "dislike") => {
+    const target = messages.find((m) => m.id === msgId);
+    const previous = target?.feedback ?? null;
+    const next = previous === type ? null : type;
+    setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, feedback: next } : m)));
+
+    if (!target?.persisted) {
+      toast.info(t.toasts.feedbackLocalOnly);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/chat/messages/${encodeURIComponent(msgId)}/feedback`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ feedback: next }),
+      });
+      if (!res.ok) throw new Error();
+      if (next) toast.success(next === "like" ? t.toasts.feedbackLike : t.toasts.feedbackDislike);
+    } catch {
+      setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, feedback: previous } : m)));
+      toast.error(t.toasts.feedbackFailed);
+    }
   };
 
   return (
@@ -474,6 +533,7 @@ export function ChatWorkspace({
                 onClick={onToggleMobileSidebar}
                 className="md:hidden flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer"
                 title={t.chat.navMenu}
+                aria-label={t.chat.navMenu}
               >
                 <Menu className="h-4 w-4" />
               </button>
@@ -575,6 +635,7 @@ export function ChatWorkspace({
                 onClick={() => setShowMoreMenu((prev) => !prev)}
                 className="h-8 w-8 text-zinc-600 dark:text-zinc-300 cursor-pointer"
                 title={t.chat.moreToolsTitle}
+                aria-label={t.chat.moreToolsTitle}
               >
                 <MoreVertical className="h-4 w-4" />
               </Button>
@@ -637,6 +698,7 @@ export function ChatWorkspace({
             onClick={onOpenSettings}
             className="h-8 w-8 text-zinc-600 dark:text-zinc-300 cursor-pointer"
             title={t.chat.settings}
+            aria-label={t.chat.settings}
           >
             <Sliders className="h-3.5 w-3.5" />
           </Button>
@@ -650,6 +712,7 @@ export function ChatWorkspace({
             onClick={toggleTheme}
             className="h-8 w-8 text-zinc-600 dark:text-zinc-300 cursor-pointer"
             title={isDark ? t.common.lightTheme : t.common.darkTheme}
+            aria-label={isDark ? t.common.lightTheme : t.common.darkTheme}
           >
             {isDark ? (
               <Sun className="h-3.5 w-3.5 text-amber-500" />
@@ -758,7 +821,7 @@ export function ChatWorkspace({
                     {msg.citations && msg.citations.length > 0 && (
                       <div className="mt-3.5 flex flex-wrap items-center gap-1.5 border-t border-zinc-100 pt-2.5 dark:border-zinc-800/60">
                         <span className="text-[11px] font-medium text-zinc-400">
-                          Referensi Terverifikasi:
+                          {t.access.verifiedReferences}
                         </span>
                         {msg.citations.map((cite) => (
                           <Badge
@@ -786,7 +849,7 @@ export function ChatWorkspace({
                             <span>{msg.groundedness.score}% Grounded</span>
                             <span className="text-zinc-300 dark:text-zinc-600">•</span>
                             <span className="font-normal text-zinc-500 dark:text-zinc-400">
-                              Risiko: {msg.groundedness.hallucinationRisk}
+                              {t.access.riskLabel}: {msg.groundedness.hallucinationRisk}
                             </span>
                           </button>
                         ) : (
@@ -800,25 +863,27 @@ export function ChatWorkspace({
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
-                          onClick={() => handleFeedback(msg.id, "like")}
+                          onClick={() => void handleFeedback(msg.id, "like")}
                           className={`rounded p-1 text-[11px] transition cursor-pointer ${
                             msg.feedback === "like"
                               ? "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 dark:text-emerald-400"
                               : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
                           }`}
                           title="Beri rating jawaban akurat (Suka)"
+                          aria-label="Beri rating jawaban akurat (Suka)"
                         >
                           <ThumbsUp className="h-3 w-3" />
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleFeedback(msg.id, "dislike")}
+                          onClick={() => void handleFeedback(msg.id, "dislike")}
                           className={`rounded p-1 text-[11px] transition cursor-pointer ${
                             msg.feedback === "dislike"
                               ? "text-rose-600 bg-rose-50 dark:bg-rose-950/60 dark:text-rose-400"
                               : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
                           }`}
                           title="Beri rating jawaban kurang akurat (Tidak Suka)"
+                          aria-label="Beri rating jawaban kurang akurat (Tidak Suka)"
                         >
                           <ThumbsDown className="h-3 w-3" />
                         </button>
@@ -826,17 +891,17 @@ export function ChatWorkspace({
                           type="button"
                           onClick={() => handleCopyMessage(msg.id, msg.content)}
                           className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition ml-1 cursor-pointer"
-                          title="Salin jawaban"
+                          title={t.common.copy}
                         >
                           {copiedMsgId === msg.id ? (
                             <>
                               <Check className="h-3 w-3 text-emerald-500" />
-                              <span className="text-emerald-500">Tersalin</span>
+                              <span className="text-emerald-500">{t.common.copied}</span>
                             </>
                           ) : (
                             <>
                               <Copy className="h-3 w-3" />
-                              <span>Salin</span>
+                              <span>{t.common.copy}</span>
                             </>
                           )}
                         </button>
@@ -892,7 +957,7 @@ export function ChatWorkspace({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={onOpenUpload}
+                  onClick={handleOpenUpload}
                   className="h-8 gap-1.5 px-2 text-xs text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 shrink-0"
                 >
                   <Paperclip className="h-3.5 w-3.5" />
@@ -936,6 +1001,7 @@ export function ChatWorkspace({
                       : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
                   }`}
                   title={isListening ? t.chat.stopListening : t.chat.voiceQuery}
+                  aria-label={isListening ? t.chat.stopListening : t.chat.voiceQuery}
                 >
                   {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                 </Button>

@@ -1,4 +1,11 @@
 /**
+ * LEGACY smoke script (pre security hardening).
+ * Some assertions encode behaviour that was removed on purpose: anonymous/demo writes to the
+ * public demo knowledge base ("default-kb-1" is now read-only), unlimited BYOK quota (now a
+ * 300/hour abuse limit) and the old /api/health field names. The maintained suite is
+ * `pnpm test` (Vitest: unit, API security and Postgres integration tests).
+ */
+/**
  * Deep Multi-Scenario Quality Assurance (QA) and End-to-End Stress Test Suite
  * Enterprise Knowledge Base & Semantic Search Engine (Cortex RAG)
  */

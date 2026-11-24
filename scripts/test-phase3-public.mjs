@@ -56,8 +56,9 @@ async function testPhase3() {
   console.log("BYOK X-RateLimit-Limit:", limitByok);
   console.log("BYOK X-RateLimit-Remaining:", remainingByok);
 
-  if (limitByok !== "999999") {
-    throw new Error(`Expected BYOK limit 999999 (bypassed), got ${limitByok}`);
+  // BYOK skips the plan quota but keeps a 300/hour abuse limit (never unlimited).
+  if (limitByok !== "300") {
+    throw new Error(`Expected BYOK abuse limit 300, got ${limitByok}`);
   }
 
   console.log("\n=== 3. Test Shared Knowledge Base Access ===");

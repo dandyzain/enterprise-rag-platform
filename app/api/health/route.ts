@@ -37,7 +37,13 @@ export async function GET() {
           indexing: isPostgres ? "HNSW (vector_cosine_ops) + GIN full-text" : "Exact cosine + BM25",
           connected: healthy,
         },
-        embedding: { model: getEmbeddingModelId(), dimensions: 1536 },
+        // Backwards-compatible alias of `storage` for existing monitors.
+        database: {
+          engine: isPostgres ? "PostgreSQL + pgvector" : "In-memory (demo, not persistent)",
+          connected: healthy,
+          persistent: isPostgres,
+        },
+        embedding: { provider: getEmbeddingModelId(), model: getEmbeddingModelId(), dimensions: 1536 },
         chat: { models: chatProviders, offlineFallback: chatProviders.length === 0 },
         auth: { configured: isAuthConfigured() },
         rateLimiting: { backend: rateLimitBackend() },

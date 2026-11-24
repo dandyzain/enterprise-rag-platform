@@ -2,11 +2,17 @@
 
 import * as React from "react";
 import { UserSession, UserRole } from "@/lib/auth/types";
+import { useLanguage } from "@/lib/i18n/context";
+import { fmt } from "@/lib/i18n/format";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 interface AuthContextValue {
   user: UserSession | null;
   isLoading: boolean;
+  /** False when the server has no AUTH_SECRET (sign-in disabled). */
+  authAvailable: boolean;
+  demoEnabled: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   loginDemo: (role: UserRole) => Promise<boolean>;
   register: (name: string, email: string, password: string) => Promise<boolean>;
@@ -17,117 +23,102 @@ interface AuthContextValue {
 const AuthContext = React.createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const { t } = useLanguage();
+  const router = useRouter();
   const [user, setUser] = React.useState<UserSession | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [authAvailable, setAuthAvailable] = React.useState(true);
+  const [demoEnabled, setDemoEnabled] = React.useState(true);
+
+  const applyMe = React.useCallback(
+    (json: { success?: boolean; user?: UserSession | null; auth?: { available?: boolean; demoEnabled?: boolean } } | null) => {
+      setUser(json?.success && json.user ? json.user : null);
+      if (json?.auth) {
+        setAuthAvailable(Boolean(json.auth.available));
+        setDemoEnabled(Boolean(json.auth.demoEnabled));
+      }
+      setIsLoading(false);
+    },
+    []
+  );
 
   const fetchCurrentUser = React.useCallback(async () => {
     try {
-      const res = await fetch("/api/auth/me");
-      const json = await res.json();
-      if (json.success && json.user) {
-        setUser(json.user);
-      } else {
-        setUser(null);
-      }
+      const res = await fetch("/api/auth/me", { cache: "no-store" });
+      applyMe(await res.json());
     } catch {
-      setUser(null);
-    } finally {
-      setIsLoading(false);
+      applyMe(null);
     }
-  }, []);
+  }, [applyMe]);
 
   React.useEffect(() => {
-    void fetchCurrentUser();
-  }, [fetchCurrentUser]);
+    let cancelled = false;
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((json) => {
+        if (!cancelled) applyMe(json);
+      })
+      .catch(() => {
+        if (!cancelled) applyMe(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [applyMe]);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const postAuth = async (url: string, body: unknown, fallbackError: string) => {
     try {
       setIsLoading(true);
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(body),
       });
       const json = await res.json();
-      if (json.success && json.user) {
+      if (res.ok && json.success && json.user) {
         setUser(json.user);
-        toast.success(json.message || `Selamat datang, ${json.user.name}!`);
-        return true;
+        return { ok: true as const, json };
       }
-      toast.error(json.error || "Gagal masuk. Periksa kembali email dan kata sandi.");
-      return false;
+      toast.error(json.error || fallbackError);
+      return { ok: false as const, json };
     } catch {
-      toast.error("Terjadi kesalahan jaringan.");
-      return false;
+      toast.error(t.toasts.networkError);
+      return { ok: false as const, json: null };
     } finally {
       setIsLoading(false);
     }
   };
 
-  const loginDemo = async (role: UserRole): Promise<boolean> => {
-    try {
-      setIsLoading(true);
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ demoRole: role }),
-      });
-      const json = await res.json();
-      if (json.success && json.user) {
-        setUser(json.user);
-        toast.success(`Beralih ke profil demo: ${json.user.name} (${json.user.plan} Plan)`);
-        return true;
-      }
-      toast.error("Gagal beralih ke profil demo.");
-      return false;
-    } catch {
-      toast.error("Terjadi kesalahan jaringan.");
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
+  const login = async (email: string, password: string) => {
+    const { ok, json } = await postAuth("/api/auth/login", { email, password }, t.toasts.loginFailed);
+    if (ok) toast.success(json.message || fmt(t.toasts.welcome, { name: json.user.name }));
+    return ok;
   };
 
-  const register = async (name: string, email: string, password: string): Promise<boolean> => {
-    try {
-      setIsLoading(true);
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
-      });
-      const json = await res.json();
-      if (json.success && json.user) {
-        setUser(json.user);
-        toast.success(json.message || "Akun berhasil didaftarkan!");
-        return true;
-      }
-      toast.error(json.error || "Gagal mendaftarkan akun.");
-      return false;
-    } catch {
-      toast.error("Terjadi kesalahan jaringan.");
-      return false;
-    } finally {
-      setIsLoading(false);
+  const loginDemo = async (role: UserRole) => {
+    const { ok, json } = await postAuth("/api/auth/login", { demoRole: role }, t.toasts.demoSwitchFailed);
+    if (ok) {
+      toast.success(json.message || fmt(t.toasts.demoSwitched, { name: json.user.name, plan: json.user.plan }));
     }
+    return ok;
+  };
+
+  const register = async (name: string, email: string, password: string) => {
+    const { ok, json } = await postAuth("/api/auth/register", { name, email, password }, t.toasts.registerFailed);
+    if (ok) toast.success(json.message || fmt(t.toasts.welcome, { name: json.user.name }));
+    return ok;
   };
 
   const logout = async () => {
     try {
       setIsLoading(true);
       await fetch("/api/auth/logout", { method: "POST" });
-      setUser(null);
-      toast.info("Anda telah keluar dari sesi.");
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
-      }
-    } catch {
-      setUser(null);
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
-      }
+      toast.info(t.toasts.signedOut);
     } finally {
+      setUser(null);
       setIsLoading(false);
+      router.push("/login");
+      router.refresh();
     }
   };
 
@@ -136,6 +127,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         isLoading,
+        authAvailable,
+        demoEnabled,
         login,
         loginDemo,
         register,

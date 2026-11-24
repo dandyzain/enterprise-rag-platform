@@ -10,7 +10,6 @@ import {
   X,
   FileText,
   CheckCircle2,
-  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/lib/i18n/context";
@@ -109,6 +108,7 @@ export function OnboardingModal({
             onClick={handleClose}
             className="rounded-full p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer"
             title="Close tour"
+            aria-label="Close tour"
           >
             <X className="h-4 w-4" />
           </button>

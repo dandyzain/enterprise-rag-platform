@@ -21,7 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { SearchMode } from "@/lib/rag/types";
-import { useLanguage, Locale } from "@/lib/i18n/context";
+import { useLanguage } from "@/lib/i18n/context";
 import { useTheme } from "@/components/providers/theme-provider";
 
 export interface RagSettings {
@@ -50,12 +50,14 @@ export function SettingsModal({
   const { locale, setLocale, t } = useLanguage();
   const { preference: themePreference, setTheme } = useTheme();
   const [localSettings, setLocalSettings] = React.useState<RagSettings>(settings);
+  const [syncedSettings, setSyncedSettings] = React.useState<RagSettings>(settings);
   const [showKeys, setShowKeys] = React.useState(false);
 
-  // Sync local state when incoming settings prop changes
-  React.useEffect(() => {
+  // Reset the draft when the saved settings change (adjust state during render, no effect).
+  if (syncedSettings !== settings) {
+    setSyncedSettings(settings);
     setLocalSettings(settings);
-  }, [settings]);
+  }
 
   if (!isOpen) return null;
 
@@ -83,6 +85,7 @@ export function SettingsModal({
             </div>
           </div>
           <button
+            aria-label={t.common.close}
             onClick={onClose}
             className="rounded-full p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer"
           >
@@ -210,6 +213,9 @@ export function SettingsModal({
             <div className="mt-2 grid grid-cols-3 gap-2">
               <button
                 type="button"
+                role="switch"
+                aria-checked={localSettings.enableReranking}
+                aria-label={t.modals.settings.rerankLabel}
                 onClick={() =>
                   setLocalSettings((prev) => ({ ...prev, searchMode: "hybrid" }))
                 }
@@ -348,6 +354,9 @@ export function SettingsModal({
               </div>
               <button
                 type="button"
+                role="switch"
+                aria-checked={localSettings.enableReranking}
+                aria-label={t.modals.settings.rerankLabel}
                 onClick={() =>
                   setLocalSettings((prev) => ({
                     ...prev,
@@ -389,7 +398,7 @@ export function SettingsModal({
                 <div className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">
                   OpenAI
                 </div>
-                <div className="text-[11px] text-zinc-500">GPT-4o Mini</div>
+                <div className="text-[11px] text-zinc-500">GPT-5.4 mini</div>
               </button>
 
               <button
@@ -406,7 +415,7 @@ export function SettingsModal({
                 <div className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">
                   Google Gemini
                 </div>
-                <div className="text-[11px] text-zinc-500">Gemini 1.5 Flash</div>
+                <div className="text-[11px] text-zinc-500">Gemini Flash (latest)</div>
               </button>
             </div>
           </div>
@@ -437,6 +446,7 @@ export function SettingsModal({
                 onClick={() => setShowKeys(!showKeys)}
                 className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
                 title={showKeys ? "Hide Keys" : "Show Keys"}
+                aria-label={showKeys ? "Hide Keys" : "Show Keys"}
               >
                 {showKeys ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>

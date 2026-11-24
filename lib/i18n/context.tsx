@@ -10,6 +10,8 @@ const dictionaries = {
   id: idDictionary,
 };
 
+const STORAGE_KEY = "app_locale";
+
 const LanguageContext = React.createContext<LanguageContextType>({
   locale: "en",
   language: "en",
@@ -20,71 +22,67 @@ const LanguageContext = React.createContext<LanguageContextType>({
   t: enDictionary,
 });
 
+// The stored preference is an external store (localStorage), read with
+// useSyncExternalStore so server render ("en") and client hydrate cleanly.
+const listeners = new Set<() => void>();
+
+function subscribe(callback: () => void) {
+  listeners.add(callback);
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === STORAGE_KEY) callback();
+  };
+  window.addEventListener("storage", onStorage);
+  return () => {
+    listeners.delete(callback);
+    window.removeEventListener("storage", onStorage);
+  };
+}
+
+function getSnapshot(): Locale {
+  try {
+    return localStorage.getItem(STORAGE_KEY) === "id" ? "id" : "en";
+  } catch {
+    return "en";
+  }
+}
+
+const getServerSnapshot = (): Locale => "en";
+
+function writeLocale(next: Locale) {
+  try {
+    localStorage.setItem(STORAGE_KEY, next);
+  } catch {
+    // storage unavailable (private mode) — keep in-memory only
+  }
+  listeners.forEach((fn) => fn());
+}
+
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  // English is the default language
-  const [locale, setLocaleState] = React.useState<Locale>("en");
-  const [mounted, setMounted] = React.useState(false);
+  const locale = React.useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
-  // Sync with localStorage on client mount
+  // Mirror the preference to <html lang> and to a cookie so API responses are localized too.
   React.useEffect(() => {
-    setMounted(true);
-    try {
-      const stored = localStorage.getItem("app_locale") as Locale | null;
-      if (stored === "id" || stored === "en") {
-        setLocaleState(stored);
-        document.documentElement.lang = stored;
-      } else {
-        // Default to English
-        setLocaleState("en");
-        document.documentElement.lang = "en";
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
+    document.documentElement.lang = locale;
+    document.cookie = `${STORAGE_KEY}=${locale}; path=/; max-age=31536000; samesite=lax`;
+  }, [locale]);
 
-  const setLocale = React.useCallback((newLocale: Locale) => {
-    setLocaleState(newLocale);
-    try {
-      localStorage.setItem("app_locale", newLocale);
-      document.documentElement.lang = newLocale;
-    } catch {
-      // ignore
-    }
-  }, []);
+  const setLocale = React.useCallback((newLocale: Locale) => writeLocale(newLocale), []);
+  const toggleLocale = React.useCallback(() => writeLocale(getSnapshot() === "en" ? "id" : "en"), []);
 
-  const toggleLocale = React.useCallback(() => {
-    setLocaleState((prev) => {
-      const next: Locale = prev === "en" ? "id" : "en";
-      try {
-        localStorage.setItem("app_locale", next);
-        document.documentElement.lang = next;
-      } catch {
-        // ignore
-      }
-      return next;
-    });
-  }, []);
-
-  const t = dictionaries[locale] || enDictionary;
-  const isEnglish = locale === "en";
-  const isIndonesian = locale === "id";
-
-  return (
-    <LanguageContext.Provider
-      value={{
-        locale,
-        language: locale,
-        setLocale,
-        toggleLocale,
-        isEnglish,
-        isIndonesian,
-        t,
-      }}
-    >
-      {children}
-    </LanguageContext.Provider>
+  const value = React.useMemo<LanguageContextType>(
+    () => ({
+      locale,
+      language: locale,
+      setLocale,
+      toggleLocale,
+      isEnglish: locale === "en",
+      isIndonesian: locale === "id",
+      t: dictionaries[locale] || enDictionary,
+    }),
+    [locale, setLocale, toggleLocale]
   );
+
+  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 }
 
 export const useLanguage = () => React.useContext(LanguageContext);

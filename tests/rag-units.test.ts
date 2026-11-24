@@ -120,3 +120,32 @@ describe("API localization", () => {
     expect(translate("RATE_LIMITED", "id", { seconds: 30 })).toContain("30 detik");
   });
 });
+
+describe("groundedness evaluator", () => {
+  it("does not count demo-mode framing sentences as unsupported claims", async () => {
+    const { evaluateGroundedness } = await import("@/lib/rag/evaluator");
+    const { generateGroundedFallbackResponse } = await import("@/lib/rag/fallback");
+    const chunk = {
+      id: "c1",
+      documentId: "d1",
+      documentTitle: "policy.txt",
+      content: "SEC-POL-04 mandates AES-256 GCM encryption for data at rest.",
+      chunkIndex: 0,
+      pageNumber: 1,
+      similarity: 0.9,
+    };
+    const answer = generateGroundedFallbackResponse("encryption?", [chunk], true, "en");
+    const citation = {
+      index: 1,
+      chunkId: "c1",
+      documentId: "d1",
+      documentTitle: "policy.txt",
+      pageNumber: 1,
+      similarity: 90,
+      snippet: chunk.content,
+    };
+    const report = evaluateGroundedness(answer, [citation], [chunk]);
+    expect(report.totalClaimsCount).toBe(1);
+    expect(report.score).toBeGreaterThanOrEqual(80);
+  });
+});

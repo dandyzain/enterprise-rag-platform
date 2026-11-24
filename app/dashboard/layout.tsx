@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Dashboard Workspace | Cortex Enterprise RAG",
   description: "Enterprise Knowledge Base & Semantic Search Workspace",
+  robots: { index: false, follow: false },
 };
 
 export default function DashboardLayout({

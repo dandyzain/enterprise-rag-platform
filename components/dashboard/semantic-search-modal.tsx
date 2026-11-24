@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { X, Search, Sparkles, BookOpen, Clock, Layers } from "lucide-react";
+import { X, Search, BookOpen, Clock, Layers } from "lucide-react";
 import { SearchResultChunk } from "@/lib/rag/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,14 +50,14 @@ export function SemanticSearchModal({
 
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json.error || "Failed to execute vector search.");
+        throw new Error(json.error || t.toasts.searchFailed);
       }
 
       setResults(json.data.chunks || []);
       setLatencyMs(json.data.latencyMs);
     } catch (err: unknown) {
       const error = err as Error;
-      toast.error(error.message || "Failed to search vectors.");
+      toast.error(error.message || t.toasts.searchFailed);
     } finally {
       setIsSearching(false);
     }
@@ -82,6 +82,7 @@ export function SemanticSearchModal({
             </div>
           </div>
           <button
+            aria-label={t.common.close}
             onClick={onClose}
             className="rounded-full p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer"
           >

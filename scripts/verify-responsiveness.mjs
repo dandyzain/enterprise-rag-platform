@@ -48,7 +48,7 @@ assert(workspaceContent.includes('px-3 sm:px-4 pb-36 pt-4 sm:pt-6'), 'Message st
 
 // 4. Landing Page Responsive Breakpoints
 console.log('\n[AUDIT 4] Landing Page Fluid Typography & CTA Layout');
-const landingContent = fs.readFileSync(path.join(process.cwd(), 'app/page.tsx'), 'utf-8');
+const landingContent = fs.readFileSync(path.join(process.cwd(), 'app/home-client.tsx'), 'utf-8');
 assert(landingContent.includes('px-4 sm:px-6'), 'Responsive horizontal gutter padding on landing page');
 assert(landingContent.includes('text-3xl') && landingContent.includes('sm:text-5xl') && landingContent.includes('md:text-6xl'), 'Hero headline uses fluid typography (3xl -> 5xl -> 6xl)');
 assert(landingContent.includes('flex flex-col sm:flex-row') && landingContent.includes('w-full sm:w-auto'), 'CTA buttons stack full-width on mobile and align horizontally on tablet/desktop');
@@ -56,14 +56,14 @@ assert(landingContent.includes('min-w-0') && landingContent.includes('t.common.b
 
 // 5. Login Page Responsive Layout
 console.log('\n[AUDIT 5] Login & Registration Page Responsive Shell');
-const loginContent = fs.readFileSync(path.join(process.cwd(), 'app/login/page.tsx'), 'utf-8');
+const loginContent = fs.readFileSync(path.join(process.cwd(), 'app/login/login-client.tsx'), 'utf-8');
 assert(loginContent.includes('p-3 sm:p-4'), 'Mobile-friendly container padding on login shell');
 assert(loginContent.includes('p-4 sm:p-6'), 'Login card padding scales smoothly (p-4 on mobile, p-6 on desktop)');
 assert(loginContent.includes('w-full max-w-md flex items-center justify-between'), 'Top navigation bar stays within card bounds without overflowing viewport');
 
 // 6. Documentation Responsive Navigation & Sandbox
 console.log('\n[AUDIT 6] Docs Page Mobile Jump Navigation & Live Sandbox');
-const docsContent = fs.readFileSync(path.join(process.cwd(), 'app/docs/page.tsx'), 'utf-8');
+const docsContent = fs.readFileSync(path.join(process.cwd(), 'app/docs/docs-client.tsx'), 'utf-8');
 assert(docsContent.includes('lg:hidden') && docsContent.includes('overflow-x-auto'), 'Horizontal scrollable quick-jump pill bar provided for mobile & tablet');
 assert(docsContent.includes('px-4 sm:px-6 py-6 sm:py-10'), 'Responsive section padding throughout docs page');
 

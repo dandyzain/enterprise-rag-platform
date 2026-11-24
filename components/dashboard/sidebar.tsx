@@ -5,7 +5,6 @@ import { DocumentItem, KnowledgeBaseItem, ChatSessionItem } from "@/lib/rag/type
 import { formatBytes } from "@/lib/utils";
 import { useTheme } from "@/components/providers/theme-provider";
 import {
-  Database,
   FileText,
   UploadCloud,
   ChevronLeft,
@@ -24,12 +23,9 @@ import {
   X,
   LogOut,
   User,
-  UserCheck,
-  ShieldCheck,
   ChevronUp,
   Share2,
   Shield,
-  Zap,
   Search,
   Sparkles,
 } from "lucide-react";
@@ -42,6 +38,7 @@ import { toast } from "sonner";
 import { useLanguage } from "@/lib/i18n/context";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { CortexLogo } from "@/components/ui/logo";
+import { fmt } from "@/lib/i18n/format";
 
 interface SidebarProps {
   documents: DocumentItem[];
@@ -62,6 +59,10 @@ interface SidebarProps {
   onRenameSession?: (id: string, newTitle: string) => void;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
+  /** Whether the viewer may upload / delete / share / back up the selected knowledge base. */
+  canWrite?: boolean;
+  currentKb?: KnowledgeBaseItem | null;
+  onKbChanged?: () => void;
 }
 
 export function Sidebar({
@@ -83,6 +84,9 @@ export function Sidebar({
   onRenameSession,
   isMobileOpen = false,
   onCloseMobile,
+  canWrite = false,
+  currentKb = null,
+  onKbChanged,
 }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<"docs" | "chats">("docs");
@@ -99,10 +103,55 @@ export function Sidebar({
   const { t } = useLanguage();
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
+  const notifyReadOnly = () => toast.info(user ? t.toasts.readOnlyKb : t.toasts.signInToUpload);
+
+  const handleShare = async () => {
+    const url = `${window.location.origin}/dashboard?kb=${encodeURIComponent(selectedKbId)}`;
+    const copy = () => navigator.clipboard?.writeText(url).catch(() => undefined);
+    // Public demo or a knowledge base shared with me: just copy the link.
+    if (!canWrite || !currentKb || currentKb.visibility === "public") {
+      void copy();
+      toast.success(t.toasts.linkCopied);
+      return;
+    }
+    const setSharing = async (enabled: boolean) => {
+      const res = await fetch(`/api/knowledge-bases/${encodeURIComponent(selectedKbId)}/share`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || t.toasts.shareFailed);
+      onKbChanged?.();
+    };
+    try {
+      if (currentKb.visibility !== "link") await setSharing(true);
+      void copy();
+      toast.success(t.toasts.shareEnabled, {
+        action: {
+          label: t.access.stopSharing,
+          onClick: () => {
+            setSharing(false)
+              .then(() => toast.info(t.toasts.shareDisabled))
+              .catch((err: Error) => toast.error(err.message || t.toasts.shareFailed));
+          },
+        },
+      });
+    } catch (err) {
+      toast.error((err as Error).message || t.toasts.shareFailed);
+    }
+  };
+
+  const openFilePicker = () => {
+    if (!canWrite) return notifyReadOnly();
+    if (!isUploading) fileInputRef.current?.click();
+  };
+
   const handleSeedDemoDocs = async () => {
+    if (!canWrite) return notifyReadOnly();
     try {
       setIsSeeding(true);
-      toast.info("Mengindeks 3 dokumen contoh standar enterprise...");
+      toast.info(t.toasts.seeding);
       const res = await fetch("/api/seed", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -110,13 +159,13 @@ export function Sidebar({
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json.error || "Gagal memuat dokumen contoh.");
+        throw new Error(json.error || t.toasts.seedFailed);
       }
-      toast.success(json.message || "3 dokumen demo berhasil diindeks!");
+      toast.success(json.message || t.toasts.seedSuccess);
       onRefreshDocs();
     } catch (err: unknown) {
       const error = err as Error;
-      toast.error(error.message || "Gagal memuat dokumen contoh.");
+      toast.error(error.message || t.toasts.seedFailed);
     } finally {
       setIsSeeding(false);
     }
@@ -166,7 +215,7 @@ export function Sidebar({
     try {
       setIsUploading(true);
       setUploadProgressStatus("Uploading...");
-      toast.info(`Mengunggah berkas "${file.name}"...`);
+      toast.info(fmt(t.toasts.uploading, { name: file.name }));
 
       const formData = new FormData();
       formData.append("file", file);
@@ -184,15 +233,15 @@ export function Sidebar({
       const json = await res.json();
 
       if (!res.ok || !json.success) {
-        throw new Error(json.error || "Gagal mengunggah dan mengindeks dokumen.");
+        throw new Error(json.error || t.toasts.uploadFailed);
       }
 
-      toast.success(`Dokumen "${file.name}" berhasil diindeks (${json.data.totalChunks} chunks)!`);
+      toast.success(fmt(t.toasts.uploadSuccess, { name: file.name, chunks: json.data.totalChunks }));
       onUploadSuccess();
       onRefreshDocs();
     } catch (err: unknown) {
       const error = err as Error;
-      toast.error(error.message || "Gagal mengunggah dokumen.");
+      toast.error(error.message || t.toasts.uploadFailed);
     } finally {
       setIsUploading(false);
       setUploadProgressStatus(null);
@@ -225,6 +274,7 @@ export function Sidebar({
           onClick={() => setIsCollapsed(!isCollapsed)}
           className="hidden md:flex absolute -right-3.5 top-6 z-20 h-7 w-7 items-center justify-center rounded-full border border-zinc-200 bg-white shadow-xs transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800 cursor-pointer"
           title={isCollapsed ? t.sidebar.expandSidebar : t.sidebar.collapseSidebar}
+          aria-label={isCollapsed ? t.sidebar.expandSidebar : t.sidebar.collapseSidebar}
         >
           {isCollapsed ? (
             <ChevronRight className="h-3.5 w-3.5 text-zinc-600 dark:text-zinc-300" />
@@ -259,6 +309,7 @@ export function Sidebar({
               onClick={onCloseMobile}
               className="md:hidden flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 dark:border-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-900 cursor-pointer"
               title={t.common.close}
+              aria-label={t.common.close}
             >
               <X className="h-4 w-4" />
             </button>
@@ -274,11 +325,7 @@ export function Sidebar({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    const url = `${window.location.origin}/dashboard?kb=${encodeURIComponent(selectedKbId)}`;
-                    void navigator.clipboard.writeText(url);
-                    toast.success(t.common.copied);
-                  }}
+                  onClick={() => void handleShare()}
                   className="flex items-center gap-1 text-[11px] font-medium text-zinc-500 hover:text-emerald-600 dark:hover:text-emerald-400 cursor-pointer"
                   title={t.sidebar.shareKb}
                 >
@@ -288,8 +335,11 @@ export function Sidebar({
                 <button
                   type="button"
                   onClick={() =>
-                    window.open(`/api/knowledge-bases/${selectedKbId}/export`, "_blank")
+                    canWrite
+                      ? window.open(`/api/knowledge-bases/${encodeURIComponent(selectedKbId)}/export`, "_blank")
+                      : notifyReadOnly()
                   }
+                  aria-disabled={!canWrite}
                   className="flex items-center gap-1 text-[11px] font-medium text-zinc-500 hover:text-emerald-600 dark:hover:text-emerald-400 cursor-pointer"
                   title={t.sidebar.backupTitle}
                 >
@@ -311,6 +361,7 @@ export function Sidebar({
               <select
                 value={selectedKbId}
                 onChange={(e) => onSelectKb(e.target.value)}
+                aria-label={t.sidebar.knowledgeBaseLabel}
                 className="w-full bg-transparent text-xs font-medium text-zinc-900 dark:text-zinc-200 focus:outline-none cursor-pointer"
               >
                 {knowledgeBases.length > 0 ? (
@@ -326,6 +377,21 @@ export function Sidebar({
                 )}
               </select>
             </div>
+            {currentKb && (currentKb.visibility !== "private" || !canWrite) && (
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                {currentKb.visibility === "public" && (
+                  <Badge variant="outline" className="text-[9px] px-1.5 py-0">{t.access.publicDemoBadge}</Badge>
+                )}
+                {currentKb.visibility === "link" && (
+                  <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{t.access.sharedBadge}</Badge>
+                )}
+                {!canWrite && (
+                  <span className="text-[10px] leading-snug text-zinc-500">
+                    {user ? t.access.readOnlyHint : t.access.signInHint}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -344,19 +410,30 @@ export function Sidebar({
           <Button
             variant="default"
             size="icon"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={openFilePicker}
             disabled={isUploading}
             className="w-full"
             title={t.sidebar.uploadDocBtn}
+            aria-label={t.sidebar.uploadDocBtn}
           >
             <UploadCloud className="h-4 w-4" />
           </Button>
         ) : (
           <div
-            onClick={() => !isUploading && fileInputRef.current?.click()}
-            className={`group flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 p-3.5 text-center transition hover:border-emerald-500 hover:bg-emerald-50/20 dark:border-zinc-700 dark:hover:border-emerald-500 ${
+            role="button"
+            tabIndex={0}
+            aria-label={t.sidebar.uploadDocBtn}
+            aria-disabled={!canWrite || isUploading}
+            onClick={openFilePicker}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                openFilePicker();
+              }
+            }}
+            className={`group flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 p-3.5 text-center transition hover:border-emerald-500 hover:bg-emerald-50/20 dark:border-zinc-700 dark:hover:border-emerald-500 focus-visible:outline-2 focus-visible:outline-emerald-500 ${
               isUploading ? "pointer-events-none opacity-80" : ""
-            }`}
+            } ${!canWrite ? "opacity-60" : ""}`}
           >
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 transition group-hover:scale-110 dark:bg-emerald-950/60 dark:text-emerald-400">
               {isUploading ? (
@@ -416,6 +493,7 @@ export function Sidebar({
                   onClick={onRefreshDocs}
                   className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
                   title={t.sidebar.refreshTooltip}
+                  aria-label={t.sidebar.refreshTooltip}
                 >
                   <RefreshCw className={`h-3 w-3 ${isLoading ? "animate-spin" : ""}`} />
                 </button>
@@ -447,6 +525,7 @@ export function Sidebar({
                   <FileText className="mx-auto h-6 w-6 text-zinc-400" />
                   <p className="mt-1 text-xs text-zinc-500">{t.sidebar.noDocsYet}</p>
                   <p className="text-[10px] text-zinc-400">{t.sidebar.noDocsSubtext}</p>
+                  {canWrite && (
                   <button
                     type="button"
                     onClick={handleSeedDemoDocs}
@@ -456,12 +535,13 @@ export function Sidebar({
                     <Sparkles className="h-3 w-3 text-emerald-500" />
                     <span>{isSeeding ? t.sidebar.indexingDemo : t.sidebar.seedDemoDocs}</span>
                   </button>
+                  )}
                 </div>
               )
             ) : filteredDocuments.length === 0 ? (
               !isCollapsed && (
                 <div className="py-4 text-center text-xs text-zinc-400">
-                  {t.sidebar.noDocsFound} "{docSearchQuery}".
+                  {t.sidebar.noDocsFound} &ldquo;{docSearchQuery}&rdquo;.
                 </div>
               )
             ) : (
@@ -496,6 +576,7 @@ export function Sidebar({
                         onClick={() => onInspectDocument(doc)}
                         className="mt-0.5 shrink-0 text-zinc-500 group-hover:text-emerald-500 cursor-pointer"
                         title={t.sidebar.viewChunksTooltip}
+                        aria-label={t.sidebar.viewChunksTooltip}
                       >
                         <FileText className="h-4 w-4" />
                       </button>
@@ -523,17 +604,20 @@ export function Sidebar({
                               <Badge variant={badgeVariant} className="text-[9px] px-1 py-0">
                                 {badgeText}
                               </Badge>
+                              {canWrite && (
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   onDeleteDocument(doc.id);
                                 }}
-                                className="text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 opacity-0 group-hover:opacity-100 transition cursor-pointer"
-                                title="Hapus dokumen"
+                                className="text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition cursor-pointer"
+                                title={t.documents.deleteDocument}
+                                aria-label={`${t.documents.deleteDocument}: ${doc.title}`}
                               >
                                 <Trash2 className="h-3 w-3" />
                               </button>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -584,7 +668,7 @@ export function Sidebar({
             ) : filteredSessions.length === 0 ? (
               !isCollapsed && (
                 <div className="py-4 text-center text-xs text-zinc-400">
-                  {t.sidebar.noChatsFound} "{sessionSearchQuery}".
+                  {t.sidebar.noChatsFound} &ldquo;{sessionSearchQuery}&rdquo;.
                 </div>
               )
             ) : (
@@ -638,6 +722,7 @@ export function Sidebar({
                             }}
                             className="text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 p-0.5"
                             title="Simpan nama"
+                            aria-label="Simpan nama"
                           >
                             <Check className="h-3 w-3" />
                           </button>
@@ -646,6 +731,7 @@ export function Sidebar({
                             onClick={() => setEditingSessionId(null)}
                             className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-0.5"
                             title="Batal"
+                            aria-label="Batal"
                           >
                             <X className="h-3 w-3" />
                           </button>
@@ -668,6 +754,7 @@ export function Sidebar({
                                 }}
                                 className="text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 p-1"
                                 title="Ubah judul sesi"
+                                aria-label="Ubah judul sesi"
                               >
                                 <Pencil className="h-3 w-3" />
                               </button>
@@ -679,6 +766,7 @@ export function Sidebar({
                                 }}
                                 className="text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 p-1"
                                 title="Hapus sesi"
+                                aria-label="Hapus sesi"
                               >
                                 <Trash2 className="h-3 w-3" />
                               </button>
@@ -707,7 +795,7 @@ export function Sidebar({
                 <span>{t.sidebar.planPrefix} {userPlan}</span>
               </div>
               <span className="font-mono text-[10px] text-zinc-500">
-                {planLimits.queryPerHour} q/jam
+                {planLimits.queryPerHour} {t.access.perHourShort}
               </span>
             </div>
 
@@ -765,7 +853,7 @@ export function Sidebar({
         {showUserMenu && !isCollapsed && (
           <div className="absolute bottom-full left-3 right-3 mb-2 rounded-xl border border-zinc-200 bg-white p-2.5 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 animate-in fade-in slide-in-from-bottom-2 duration-150 z-50">
             <div className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-              Alihkan Profil Multi-Tenant
+              {t.access.switchProfileHeading}
             </div>
 
             <div className="space-y-1">
@@ -781,7 +869,7 @@ export function Sidebar({
                     : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
                 }`}
               >
-                <span>Alex Pratama (Admin)</span>
+                <span>{t.access.demoAdminName}</span>
                 <Badge variant="ready" className="text-[9px] px-1 py-0">
                   ENTERPRISE
                 </Badge>
@@ -799,7 +887,7 @@ export function Sidebar({
                     : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
                 }`}
               >
-                <span>Sarah Wijaya (Member)</span>
+                <span>{t.access.demoMemberName}</span>
                 <Badge variant="secondary" className="text-[9px] px-1 py-0">
                   PRO
                 </Badge>
@@ -817,7 +905,7 @@ export function Sidebar({
                     : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
                 }`}
               >
-                <span>Tamu Publik (Guest)</span>
+                <span>{t.access.demoGuestName}</span>
                 <Badge variant="outline" className="text-[9px] px-1 py-0">
                   FREE
                 </Badge>
@@ -903,6 +991,7 @@ export function Sidebar({
               onClick={() => setTheme(isDark ? "light" : "dark")}
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer shadow-xs"
               title={isDark ? t.common.lightTheme : t.common.darkTheme}
+              aria-label={isDark ? t.common.lightTheme : t.common.darkTheme}
             >
               {isDark ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-zinc-700" />}
             </button>
@@ -913,12 +1002,14 @@ export function Sidebar({
               type="button"
               onClick={() => setShowUserMenu(!showUserMenu)}
               className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold text-xs"
-              title={user?.name || "Profil Pengguna"}
+              title={user?.name || t.nav.login}
             >
               {user ? user.name.slice(0, 2).toUpperCase() : "AP"}
             </button>
             <button
+              type="button"
               onClick={() => setTheme(isDark ? "light" : "dark")}
+              aria-label={isDark ? t.common.lightTheme : t.common.darkTheme}
               className="flex h-7 w-7 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
               {isDark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}

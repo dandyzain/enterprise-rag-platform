@@ -22,6 +22,14 @@ Tracking document for the `feat/ui-ux-revamp` branch.
 - Demo profiles and multi-tenant profile switching behaviour.
 - Author credit ("Designed and Developed by Dandy Rahmat Zain") stays visible on landing, login and dashboard.
 
+### Security hardening (supersedes parts of the invariants above)
+
+- **Demo profiles** still switch Admin / Member / Guest, but each browser now gets its own sandboxed copy (ids are derived from the HttpOnly `cortex_vid` visitor cookie). Demo "Admin" no longer sees other tenants' data.
+- **`?kb=` share links** only open a knowledge base that its owner shared via the Share button (`visibility = "link"`, read-only for others). Unshared or unknown ids fall back to the public demo KB.
+- **`default-kb-1`** is the public, read-only demo KB (writable only by `ADMIN_EMAILS` accounts). Upload, seed, delete and backup controls are hidden or disabled when `knowledgeBase.canWrite` is false.
+- **New response header:** `x-message-id` on `/api/chat` (the id of the stored answer, used to persist 👍/👎 via `PUT /api/chat/messages/:id/feedback`). Existing headers are unchanged.
+- API error responses now carry `code` plus a localized `error` (from the `app_locale` cookie / `x-locale` header).
+
 ## Phase status
 
 | Phase | Status |

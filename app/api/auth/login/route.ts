@@ -23,7 +23,7 @@ export const POST = apiRoute(async (ctx) => {
     if (!isDemoLoginEnabled()) throw new ApiError("DEMO_DISABLED", 403);
     const role = DEMO_ROLES[String(body.demoRole).toLowerCase()];
     if (!role) throw new ApiError("VALIDATION", 400);
-    await ctx.rateLimit("demo-login", RATE_LIMITS.login, `ip:${ctx.actor.ip}`);
+    await ctx.rateLimit("demo-login", RATE_LIMITS.demoLogin, `ip:${ctx.actor.ip}`);
     const { token, user } = issueDemoToken(role, ctx.actor.visitorId);
     const res = ctx.json({
       success: true,
