@@ -46,6 +46,7 @@ export function KbAnalyticsModal({
             </div>
           </div>
           <button
+            aria-label={t.common.close}
             onClick={onClose}
             className="rounded-full p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer"
           >
@@ -146,7 +147,7 @@ export function KbAnalyticsModal({
               Two-Stage Re-Ranking Engine
             </span>
             <Badge variant="ready" className="text-[10px]">
-              Cross-Encoder Top-15
+              Lexical Re-ranker Top-15
             </Badge>
           </div>
         </div>

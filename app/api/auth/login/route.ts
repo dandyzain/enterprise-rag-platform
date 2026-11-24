@@ -1,65 +1,55 @@
-import { NextRequest, NextResponse } from "next/server";
-import { attachSessionCookie, DEMO_USERS } from "@/lib/auth/session";
-import { UserSession } from "@/lib/auth/types";
+import { z } from "zod";
+import { db } from "@/lib/db";
+import { apiRoute, ApiError, readJson } from "@/lib/api/route";
+import {
+  attachSessionCookie,
+  issueDemoToken,
+  issueUserToken,
+  toUserSession,
+} from "@/lib/auth/session";
+import { getDummyPasswordHash, MAX_PASSWORD_LENGTH, verifyPassword } from "@/lib/auth/password";
+import { isAuthConfigured, isDemoLoginEnabled } from "@/lib/env";
+import { RATE_LIMITS } from "@/lib/ratelimit";
+import type { UserRole } from "@/lib/auth/types";
 
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const { email, password, demoRole } = body;
+const DEMO_ROLES: Record<string, UserRole> = { admin: "ADMIN", member: "MEMBER", guest: "GUEST" };
 
-    let user: UserSession | null = null;
+export const POST = apiRoute(async (ctx) => {
+  if (!isAuthConfigured()) throw new ApiError("AUTH_NOT_CONFIGURED", 503);
+  const body = await readJson<Record<string, unknown>>(ctx.req);
 
-    if (demoRole) {
-      const key = String(demoRole).toLowerCase();
-      user = DEMO_USERS[key] || DEMO_USERS.admin;
-    } else {
-      if (!email || typeof email !== "string" || !email.includes("@")) {
-        return NextResponse.json(
-          { success: false, error: "Alamat email tidak valid." },
-          { status: 400 }
-        );
-      }
-
-      if (!password || typeof password !== "string" || password.length < 4) {
-        return NextResponse.json(
-          { success: false, error: "Kata sandi minimal 4 karakter." },
-          { status: 400 }
-        );
-      }
-
-      // Dynamic or match against preset demo accounts
-      const matchedDemo = Object.values(DEMO_USERS).find(
-        (u) => u.email.toLowerCase() === email.toLowerCase()
-      );
-
-      if (matchedDemo) {
-        user = matchedDemo;
-      } else {
-        const isAdmin = email.toLowerCase().includes("admin");
-        user = {
-          id: `usr_${crypto.randomUUID().slice(0, 8)}`,
-          email: email.toLowerCase().trim(),
-          name: email.split("@")[0].replace(/[._]/g, " "),
-          role: isAdmin ? "ADMIN" : "MEMBER",
-          plan: isAdmin ? "ENTERPRISE" : "PRO",
-          createdAt: new Date().toISOString(),
-        };
-      }
-    }
-
-    const res = NextResponse.json({
+  // Sandboxed demo profiles: each browser gets its own isolated Admin / Member / Guest workspace.
+  if (body?.demoRole !== undefined) {
+    if (!isDemoLoginEnabled()) throw new ApiError("DEMO_DISABLED", 403);
+    const role = DEMO_ROLES[String(body.demoRole).toLowerCase()];
+    if (!role) throw new ApiError("VALIDATION", 400);
+    await ctx.rateLimit("demo-login", RATE_LIMITS.demoLogin, `ip:${ctx.actor.ip}`);
+    const { token, user } = issueDemoToken(role, ctx.actor.visitorId);
+    const res = ctx.json({
       success: true,
-      message: `Selamat datang kembali, ${user.name}!`,
+      message: ctx.t("DEMO_SUCCESS", { name: user.name, plan: user.plan }),
       user,
     });
-
-    attachSessionCookie(res, user);
+    attachSessionCookie(res, token);
     return res;
-  } catch (error: any) {
-    console.error("[API Auth Login] error:", error);
-    return NextResponse.json(
-      { success: false, error: "Gagal memproses otentikasi login." },
-      { status: 500 }
-    );
   }
-}
+
+  const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
+  const password = typeof body?.password === "string" ? body.password : "";
+  if (!z.email().safeParse(email).success) throw new ApiError("INVALID_EMAIL", 400);
+  if (!password || password.length > MAX_PASSWORD_LENGTH) throw new ApiError("INVALID_CREDENTIALS", 401);
+
+  // Brute-force protection per IP and per account.
+  await ctx.rateLimit("login", RATE_LIMITS.login, `ip:${ctx.actor.ip}`);
+  await ctx.rateLimit("login", RATE_LIMITS.login, `email:${email}`);
+
+  const account = await db.getUserByEmail(email);
+  // Always run scrypt so response time does not reveal whether the e-mail exists.
+  const valid = await verifyPassword(password, account?.passwordHash ?? (await getDummyPasswordHash()));
+  if (!account || !valid) throw new ApiError("INVALID_CREDENTIALS", 401);
+
+  const user = toUserSession(account);
+  const res = ctx.json({ success: true, message: ctx.t("LOGIN_SUCCESS", { name: user.name }), user });
+  attachSessionCookie(res, issueUserToken(account));
+  return res;
+});

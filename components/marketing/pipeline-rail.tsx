@@ -33,7 +33,7 @@ const STEPS: Step[] = [
   },
   {
     title: "Two-Stage Re-Ranking",
-    description: "Cross-encoder filters top candidates with phrase boost and entity congruence.",
+    description: "Lexical re-ranker re-scores top candidates with phrase boost and entity congruence.",
     icon: ArrowDownUp,
   },
   {

@@ -1,69 +1,31 @@
-import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { getSessionFromRequest } from "@/lib/auth/session";
 import { z } from "zod";
+import { db } from "@/lib/db";
+import { apiRoute, readJson } from "@/lib/api/route";
+import { loadReadableKb } from "@/lib/api/access";
+import { idSchema, parseWith } from "@/lib/api/schemas";
+import { RATE_LIMITS } from "@/lib/ratelimit";
 
 const CreateSessionSchema = z.object({
-  knowledgeBaseId: z.string().min(1, "Knowledge Base ID is required"),
-  title: z.string().min(1, "Judul sesi percakapan tidak boleh kosong"),
+  knowledgeBaseId: idSchema,
+  title: z.string().trim().min(1).max(120),
 });
 
-export async function GET(req: NextRequest) {
-  try {
-    const user = getSessionFromRequest(req);
-    const { searchParams } = new URL(req.url);
-    const kbId = searchParams.get("kbId") || "default-kb-1";
-    const effectiveUserId = user?.id || "usr_guest_003";
+/** Chat sessions are private to the caller (account, demo profile, or anonymous browser). */
+export const GET = apiRoute(async (ctx) => {
+  const kbId = parseWith(idSchema, ctx.req.nextUrl.searchParams.get("kbId") || "default-kb-1");
+  const kb = await loadReadableKb(ctx.actor, kbId);
+  const sessions = await db.listChatSessions(kb.id, ctx.actor.ownerId);
+  return ctx.json({ success: true, data: sessions });
+});
 
-    const sessions = await db.getChatSessions(kbId, effectiveUserId);
-    return NextResponse.json({
-      success: true,
-      data: sessions,
-    });
-  } catch (error) {
-    console.error("[API Chat Sessions] GET error:", error);
-    return NextResponse.json(
-      { success: false, error: "Gagal memuat sesi obrolan." },
-      { status: 500 }
-    );
-  }
-}
-
-export async function POST(req: NextRequest) {
-  try {
-    const user = getSessionFromRequest(req);
-    const body = await req.json();
-    const validation = CreateSessionSchema.safeParse(body);
-
-    if (!validation.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Validasi parameter gagal",
-          details: validation.error.flatten(),
-        },
-        { status: 400 }
-      );
-    }
-
-    const session = await db.createChatSession({
-      knowledgeBaseId: validation.data.knowledgeBaseId,
-      title: validation.data.title,
-      userId: user?.id || "usr_guest_003",
-    });
-
-    return NextResponse.json(
-      {
-        success: true,
-        data: session,
-      },
-      { status: 201 }
-    );
-  } catch (error) {
-    console.error("[API Chat Sessions] POST error:", error);
-    return NextResponse.json(
-      { success: false, error: "Gagal membuat sesi obrolan baru." },
-      { status: 500 }
-    );
-  }
-}
+export const POST = apiRoute(async (ctx) => {
+  await ctx.rateLimit("write", RATE_LIMITS.write);
+  const body = parseWith(CreateSessionSchema, await readJson(ctx.req));
+  const kb = await loadReadableKb(ctx.actor, body.knowledgeBaseId);
+  const session = await db.createChatSession({
+    knowledgeBaseId: kb.id,
+    title: body.title,
+    userId: ctx.actor.ownerId,
+  });
+  return ctx.json({ success: true, data: session }, { status: 201 });
+});

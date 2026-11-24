@@ -1,72 +1,44 @@
-import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { getSessionFromRequest } from "@/lib/auth/session";
 import { z } from "zod";
+import { db } from "@/lib/db";
+import { apiRoute, ApiError, readJson } from "@/lib/api/route";
+import { listVisibleKnowledgeBases, withPermissions } from "@/lib/api/access";
+import { getPlanQuota, RATE_LIMITS } from "@/lib/ratelimit";
 
 const CreateKnowledgeBaseSchema = z.object({
-  name: z.string().min(2, "Nama Knowledge Base minimal 2 karakter"),
-  description: z.string().optional(),
+  name: z.string().trim().min(2).max(120),
+  description: z.string().trim().max(1000).optional(),
 });
 
-export async function GET(req: NextRequest) {
-  try {
-    const user = getSessionFromRequest(req);
-    const kbs = await db.getKnowledgeBases(user?.id || "usr_guest_003");
-    return NextResponse.json({
+export const GET = apiRoute(async (ctx) => {
+  const kbs = await listVisibleKnowledgeBases(ctx.actor);
+  return ctx.json({ success: true, data: kbs });
+});
+
+export const POST = apiRoute(async (ctx) => {
+  const user = ctx.requireUser();
+  await ctx.rateLimit("write", RATE_LIMITS.write);
+
+  const parsed = CreateKnowledgeBaseSchema.safeParse(await readJson(ctx.req));
+  if (!parsed.success) throw new ApiError("KB_NAME_REQUIRED", 400);
+
+  const quota = getPlanQuota(user.plan);
+  const owned = await db.countKnowledgeBasesByOwner(user.id);
+  if (owned >= quota.maxKnowledgeBases) {
+    throw new ApiError("KB_LIMIT", 403, { limit: quota.maxKnowledgeBases, plan: user.plan });
+  }
+
+  const kb = await db.createKnowledgeBase({
+    name: parsed.data.name,
+    description: parsed.data.description ?? null,
+    userId: user.id,
+  });
+
+  return ctx.json(
+    {
       success: true,
-      data: kbs,
-    });
-  } catch (error) {
-    console.error("[API Knowledge Bases] GET error:", error);
-    return NextResponse.json(
-      { success: false, error: "Gagal memuat Knowledge Bases." },
-      { status: 500 }
-    );
-  }
-}
-
-export async function POST(req: NextRequest) {
-  try {
-    const user = getSessionFromRequest(req);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: "Silakan masuk terlebih dahulu untuk membuat Knowledge Base." },
-        { status: 401 }
-      );
-    }
-    const body = await req.json();
-    const validation = CreateKnowledgeBaseSchema.safeParse(body);
-
-    if (!validation.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Validasi parameter gagal",
-          details: validation.error.flatten(),
-        },
-        { status: 400 }
-      );
-    }
-
-    const kb = await db.createKnowledgeBase(
-      validation.data.name,
-      validation.data.description,
-      user.id
-    );
-
-    return NextResponse.json(
-      {
-        success: true,
-        message: `Knowledge Base "${kb.name}" berhasil dibuat.`,
-        data: kb,
-      },
-      { status: 201 }
-    );
-  } catch (error) {
-    console.error("[API Knowledge Bases] POST error:", error);
-    return NextResponse.json(
-      { success: false, error: "Gagal membuat Knowledge Base baru." },
-      { status: 500 }
-    );
-  }
-}
+      message: ctx.t("KB_CREATED", { name: kb.name }),
+      data: withPermissions(ctx.actor, [kb])[0],
+    },
+    { status: 201 }
+  );
+});

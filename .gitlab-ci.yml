@@ -6,6 +6,10 @@ stages:
 
 variables:
   PNPM_HOME: "/pnpm"
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+  POSTGRES_DB: rag_test
+  TEST_DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/rag_test"
 
 cache:
   key: ${CI_COMMIT_REF_SLUG}
@@ -21,9 +25,16 @@ before_script:
 
 test:
   stage: test
+  services:
+    - name: pgvector/pgvector:pg16
+      alias: postgres
   script:
     - pnpm install --frozen-lockfile
     - pnpm prisma generate
+    - pnpm lint
+    - pnpm typecheck
+    - DATABASE_URL="$TEST_DATABASE_URL" pnpm prisma migrate deploy
+    - pnpm test
     - node scripts/verify-responsiveness.mjs
   rules:
     - if: $CI_COMMIT_BRANCH == "master"

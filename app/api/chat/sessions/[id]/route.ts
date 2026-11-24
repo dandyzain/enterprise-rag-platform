@@ -1,82 +1,32 @@
-import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { apiRoute, ApiError, readJson } from "@/lib/api/route";
+import { loadOwnedSession } from "@/lib/api/access";
+import { RATE_LIMITS } from "@/lib/ratelimit";
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    const messages = await db.getChatMessages(id);
-    return NextResponse.json({
-      success: true,
-      data: messages,
-    });
-  } catch (error) {
-    console.error("[API Chat Sessions ID] GET error:", error);
-    return NextResponse.json(
-      { success: false, error: "Gagal memuat pesan riwayat sesi." },
-      { status: 500 }
-    );
-  }
-}
+export const GET = apiRoute<{ id: string }>(async (ctx) => {
+  const session = await loadOwnedSession(ctx.actor, ctx.params.id);
+  const messages = await db.listChatMessages(session.id);
+  return ctx.json({ success: true, data: messages });
+});
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    const body = await req.json();
-    const { title } = body;
+export const PATCH = apiRoute<{ id: string }>(async (ctx) => {
+  await ctx.rateLimit("write", RATE_LIMITS.write);
+  const session = await loadOwnedSession(ctx.actor, ctx.params.id);
+  const body = await readJson<{ title?: unknown }>(ctx.req);
+  const title = typeof body?.title === "string" ? body.title.trim().slice(0, 120) : "";
+  if (!title) throw new ApiError("SESSION_TITLE_REQUIRED", 400);
 
-    if (!title || typeof title !== "string" || !title.trim()) {
-      return NextResponse.json(
-        { success: false, error: "Judul sesi tidak boleh kosong." },
-        { status: 400 }
-      );
-    }
+  await db.renameChatSession(session.id, title);
+  return ctx.json({
+    success: true,
+    message: ctx.t("SESSION_RENAMED"),
+    data: { id: session.id, title },
+  });
+});
 
-    await db.updateChatSessionTitle(id, title.trim());
-
-    return NextResponse.json({
-      success: true,
-      message: "Judul sesi berhasil diperbarui.",
-      data: { id, title: title.trim() },
-    });
-  } catch (error) {
-    console.error("[API Chat Sessions ID] PATCH error:", error);
-    return NextResponse.json(
-      { success: false, error: "Gagal memperbarui judul sesi." },
-      { status: 500 }
-    );
-  }
-}
-
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    const deleted = await db.deleteChatSession(id);
-    if (!deleted) {
-      return NextResponse.json(
-        { success: false, error: "Sesi tidak ditemukan untuk dihapus." },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: "Sesi obrolan berhasil dihapus.",
-    });
-  } catch (error) {
-    console.error("[API Chat Sessions ID] DELETE error:", error);
-    return NextResponse.json(
-      { success: false, error: "Gagal menghapus sesi obrolan." },
-      { status: 500 }
-    );
-  }
-}
-
+export const DELETE = apiRoute<{ id: string }>(async (ctx) => {
+  await ctx.rateLimit("write", RATE_LIMITS.write);
+  const session = await loadOwnedSession(ctx.actor, ctx.params.id);
+  await db.deleteChatSession(session.id);
+  return ctx.json({ success: true, message: ctx.t("SESSION_DELETED") });
+});

@@ -1,5 +1,9 @@
 // Prisma Schema for Enterprise Knowledge Base & RAG Platform
-// Supports PostgreSQL with pgvector extension
+// PostgreSQL + pgvector. Keep in sync with prisma/migrations/*.
+//
+// Ids are TEXT (not UUID) so application ids such as the public demo
+// knowledge base "default-kb-1" are valid. Enum-like columns are plain
+// strings because the SQL migrations store them as VARCHAR.
 
 datasource db {
   provider   = "postgresql"
@@ -12,86 +16,105 @@ generator client {
   previewFeatures = ["postgresqlExtensions"]
 }
 
-enum DocumentStatus {
-  PROCESSING
-  INDEXED
-  FAILED
-}
+model User {
+  id             String   @id
+  email          String   @unique
+  name           String
+  passwordHash   String   @map("password_hash")
+  role           String   @default("MEMBER") // ADMIN | MEMBER | GUEST
+  plan           String   @default("FREE") // FREE | PRO | ENTERPRISE
+  sessionVersion Int      @default(1) @map("session_version")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-enum MessageRole {
-  USER
-  ASSISTANT
+  @@map("users")
 }
 
 model KnowledgeBase {
-  id          String        @id @default(uuid())
-  userId      String        @default("user_default") @map("user_id")
-  name        String
+  id          String   @id
+  userId      String   @default("user_default") @map("user_id") @db.VarChar(255)
+  name        String   @db.VarChar(255)
   description String?
-  createdAt   DateTime      @default(now()) @map("created_at")
+  visibility  String   @default("private") // private | link | public
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   documents    Document[]
   chatSessions ChatSession[]
 
+  @@index([userId])
   @@map("knowledge_bases")
 }
 
 model Document {
-  id              String         @id @default(uuid())
-  knowledgeBaseId String         @map("knowledge_base_id")
-  title           String
-  fileUrl         String         @map("file_url")
-  fileType        String         @map("file_type")
-  fileSize        Int            @map("file_size")
-  status          DocumentStatus @default(PROCESSING)
-  chunkCount      Int            @default(0) @map("chunk_count")
-  createdAt       DateTime       @default(now()) @map("created_at")
+  id              String   @id
+  knowledgeBaseId String   @map("knowledge_base_id")
+  title           String   @db.VarChar(255)
+  fileUrl         String   @map("file_url")
+  fileType        String   @map("file_type") @db.VarChar(100)
+  fileSize        Int      @map("file_size")
+  status          String   @default("PROCESSING") @db.VarChar(50) // PROCESSING | INDEXED | FAILED
+  chunkCount      Int      @default(0) @map("chunk_count")
+  embeddingModel  String?  @map("embedding_model")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  knowledgeBase   KnowledgeBase  @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
-  chunks          DocumentChunk[]
+  knowledgeBase KnowledgeBase   @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  chunks        DocumentChunk[]
+  file          DocumentFile?
 
   @@index([knowledgeBaseId])
   @@map("documents")
 }
 
-model DocumentChunk {
-  id          String                    @id @default(uuid())
-  documentId  String                    @map("document_id")
-  content     String
-  chunkIndex  Int                       @map("chunk_index")
-  pageNumber  Int?                      @map("page_number")
-  embedding   Unsupported("vector(1536)")?
-  createdAt   DateTime                  @default(now()) @map("created_at")
+model DocumentFile {
+  documentId String   @id @map("document_id")
+  content    Bytes
+  mimeType   String   @map("mime_type")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  document    Document                  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@map("document_files")
+}
+
+model DocumentChunk {
+  id         String                       @id
+  documentId String                       @map("document_id")
+  content    String
+  chunkIndex Int                          @map("chunk_index")
+  pageNumber Int?                         @map("page_number")
+  embedding  Unsupported("vector(1536)")?
+  createdAt  DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@index([documentId])
   @@map("document_chunks")
 }
 
 model ChatSession {
-  id              String        @id @default(uuid())
-  knowledgeBaseId String        @map("knowledge_base_id")
-  userId          String        @default("user_default") @map("user_id")
-  title           String
-  createdAt       DateTime      @default(now()) @map("created_at")
+  id              String   @id
+  knowledgeBaseId String   @map("knowledge_base_id")
+  userId          String   @default("user_default") @map("user_id") @db.VarChar(255)
+  title           String   @db.VarChar(255)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  knowledgeBase   KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
-  messages        Message[]
+  knowledgeBase KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  messages      Message[]
 
   @@index([knowledgeBaseId])
+  @@index([knowledgeBaseId, userId])
   @@map("chat_sessions")
 }
 
 model Message {
-  id            String      @id @default(uuid())
-  chatSessionId String      @map("chat_session_id")
-  role          MessageRole
+  id            String   @id
+  chatSessionId String   @map("chat_session_id")
+  role          String   @db.VarChar(50) // USER | ASSISTANT
   content       String
   citations     Json?
-  createdAt     DateTime    @default(now()) @map("created_at")
+  feedback      String? // like | dislike
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  chatSession   ChatSession @relation(fields: [chatSessionId], references: [id], onDelete: Cascade)
+  chatSession ChatSession @relation(fields: [chatSessionId], references: [id], onDelete: Cascade)
 
   @@index([chatSessionId])
   @@map("messages")

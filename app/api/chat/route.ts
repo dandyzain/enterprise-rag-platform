@@ -1,276 +1,153 @@
-import { NextRequest, NextResponse } from "next/server";
-import { streamText } from "ai";
-import { openai, createOpenAI } from "@ai-sdk/openai";
-import { google, createGoogleGenerativeAI } from "@ai-sdk/google";
+import { streamText, type ModelMessage } from "ai";
 import { db } from "@/lib/db";
+import { apiRoute, ApiError, readJson } from "@/lib/api/route";
+import { loadOwnedSession, loadReadableKb } from "@/lib/api/access";
+import { ChatSchema, parseWith } from "@/lib/api/schemas";
+import { createChatModel, resolveChatRoute, serverModelAvailability } from "@/lib/ai/models";
 import { performSemanticSearch } from "@/lib/rag/search";
 import { buildStrictGroundingPrompt } from "@/lib/rag/prompt";
 import { evaluateGroundedness } from "@/lib/rag/evaluator";
-import { SearchMode } from "@/lib/rag/types";
-import { getSessionFromRequest } from "@/lib/auth/session";
-import { checkRateLimit, getClientIdentifier } from "@/lib/ratelimit";
+import { buildHistory, condenseQuery } from "@/lib/rag/conversation";
+import { generateGroundedFallbackResponse, generateSmartSessionTitle, isDefaultSessionTitle } from "@/lib/rag/fallback";
+import { getPlanQuota, RATE_LIMITS } from "@/lib/ratelimit";
 
-export const maxDuration = 45;
+export const maxDuration = 60;
 
-export async function POST(req: NextRequest) {
-  try {
-    // Check for Bring-Your-Own-Key (BYOK)
-    const customOpenAiKey = req.headers.get("x-custom-openai-key")?.trim() || "";
-    const customGeminiKey = req.headers.get("x-custom-gemini-key")?.trim() || "";
-    const isUsingByok = Boolean(
-      (customOpenAiKey && customOpenAiKey.startsWith("sk-")) ||
-      (customGeminiKey && customGeminiKey.length > 15)
-    );
+const EXPOSED_HEADERS =
+  "x-citations, x-groundedness, x-message-id, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset";
 
-    const user = getSessionFromRequest(req);
-    const effectivePlan = user?.plan || "FREE";
-    const identifier = getClientIdentifier(req, user);
-    const rateLimit = isUsingByok
-      ? { allowed: true, limit: 999999, remaining: 999999, resetInSeconds: 0 }
-      : checkRateLimit(identifier, effectivePlan);
+export const POST = apiRoute(async (ctx) => {
+  const body = parseWith(ChatSchema, await readJson(ctx.req));
+  const locale = body.locale ?? ctx.locale;
 
-    if (!rateLimit.allowed) {
-      return NextResponse.json(
-        {
-          error: `Batas kuota pertanyaan tercapai (${rateLimit.limit} query/jam pada paket ${effectivePlan}). Silakan tunggu ${rateLimit.resetInSeconds} detik, beralih ke paket PRO, atau gunakan Bring-Your-Own-Key (BYOK) di Pengaturan.`,
-          resetInSeconds: rateLimit.resetInSeconds,
-        },
-        {
-          status: 429,
-          headers: {
-            "X-RateLimit-Limit": String(rateLimit.limit),
-            "X-RateLimit-Remaining": "0",
-            "X-RateLimit-Reset": String(rateLimit.resetInSeconds),
-          },
-        }
-      );
+  const query = [...body.messages].reverse().find((m) => m.role === "user")?.content.trim() || "";
+  if (!query) throw new ApiError("MESSAGES_REQUIRED", 400);
+
+  // 1. Authorization: readable knowledge base, and the session must belong to the caller.
+  const kb = await loadReadableKb(ctx.actor, body.knowledgeBaseId);
+  const session = body.chatSessionId ? await loadOwnedSession(ctx.actor, body.chatSessionId) : null;
+  if (session && session.knowledgeBaseId !== kb.id) throw new ApiError("SESSION_NOT_FOUND", 404);
+
+  // 2. Who pays? BYOK only when the caller's own key is used for the chosen provider.
+  const chatRoute = resolveChatRoute({
+    requested: body.modelProvider,
+    byok: {
+      openai: ctx.req.headers.get("x-custom-openai-key"),
+      gemini: ctx.req.headers.get("x-custom-gemini-key"),
+    },
+    server: serverModelAvailability(),
+  });
+
+  const plan = ctx.actor.user?.plan ?? "FREE";
+  let rateHeaders: Record<string, string>;
+  if (chatRoute.mode === "byok") {
+    rateHeaders = await ctx.rateLimit("chat-byok", RATE_LIMITS.byokChat);
+  } else {
+    const quota = getPlanQuota(plan);
+    try {
+      rateHeaders = await ctx.rateLimit("chat", { limit: quota.maxRequestsPerHour, windowSeconds: 3600 });
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "RATE_LIMITED") {
+        throw new ApiError(
+          "QUOTA_CHAT",
+          429,
+          { limit: quota.maxRequestsPerHour, plan, seconds: err.params.seconds },
+          err.headers
+        );
+      }
+      throw err;
     }
+  }
 
-    const body = await req.json();
-    const {
+  const model = chatRoute.mode === "offline" ? null : createChatModel(chatRoute);
+  const history = buildHistory(
+    body.messages.filter((m): m is { role: "user" | "assistant"; content: string } => m.role !== "system")
+  );
+
+  // 3. Persist the user turn (and auto-title brand new sessions).
+  if (session) {
+    const isFirstMessage = (await db.listChatMessages(session.id)).length === 0;
+    await db.createChatMessage({ chatSessionId: session.id, role: "USER", content: query });
+    if (isFirstMessage && isDefaultSessionTitle(session.title)) {
+      await db.renameChatSession(session.id, generateSmartSessionTitle(query, locale));
+    }
+  }
+
+  // 4. Retrieval with a standalone version of follow-up questions.
+  const retrievalQuery = await condenseQuery(history, query, model);
+  const searchResult = await performSemanticSearch({
+    knowledgeBaseId: kb.id,
+    query: retrievalQuery,
+    searchMode: body.searchMode,
+    threshold: body.similarityThreshold,
+    topK: body.topK,
+    filterDocumentIds: body.filterDocumentIds ?? undefined,
+    enableReranking: body.enableReranking,
+  });
+
+  const assistantMessageId = crypto.randomUUID();
+  const baseHeaders: Record<string, string> = {
+    ...rateHeaders,
+    "x-citations": encodeURIComponent(JSON.stringify(searchResult.citations)),
+    "Access-Control-Expose-Headers": EXPOSED_HEADERS,
+    ...(session ? { "x-message-id": assistantMessageId } : {}),
+  };
+
+  const persistAnswer = async (text: string) => {
+    if (!session || !text) return;
+    try {
+      await db.createChatMessage({
+        id: assistantMessageId,
+        chatSessionId: session.id,
+        role: "ASSISTANT",
+        content: text,
+        citations: searchResult.citations,
+        groundedness: evaluateGroundedness(text, searchResult.citations, searchResult.chunks),
+      });
+    } catch (err) {
+      console.error("[API Chat] Failed to persist assistant message:", err);
+    }
+  };
+
+  // 5a. LLM generation with conversation memory.
+  if (model) {
+    const { systemPrompt, userPrompt } = buildStrictGroundingPrompt(query, searchResult.chunks, locale);
+    const messages: ModelMessage[] = [
+      ...history.map((m) => ({ role: m.role, content: m.content }) as ModelMessage),
+      { role: "user", content: userPrompt },
+    ];
+    const result = streamText({
+      model,
+      system: systemPrompt,
       messages,
-      knowledgeBaseId = "default-kb-1",
-      chatSessionId,
-      modelProvider = "openai",
-      searchMode = "hybrid" as SearchMode,
-      similarityThreshold = 0.65,
-      topK = 5,
-      filterDocumentIds,
-      enableReranking = true,
-    } = body;
-
-    if (!Array.isArray(messages) || messages.length === 0) {
-      return NextResponse.json(
-        { error: "Riwayat pesan (messages array) tidak boleh kosong." },
-        { status: 400 }
-      );
-    }
-
-    // Extract the latest query from user
-    const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
-    const query = lastUserMessage?.content || "";
-
-    // Persist user message and perform smart auto-titling if session is active
-    if (chatSessionId && query) {
-      try {
-        await db.createChatMessage({
-          chatSessionId,
-          role: "USER",
-          content: query,
-        });
-
-        // Auto-title session if currently default
-        const session = await db.getChatSessionById(chatSessionId);
-        if (
-          session &&
-          (session.title === "Percakapan Baru" ||
-            session.title.startsWith("Sesi ") ||
-            session.title.trim().length === 0)
-        ) {
-          const smartTitle = generateSmartSessionTitle(query);
-          await db.updateChatSessionTitle(chatSessionId, smartTitle);
-        }
-      } catch (err) {
-        console.warn("[API Chat] Failed to save user message or auto-title session:", err);
-      }
-    }
-
-    // 1. Perform Hybrid / Semantic Search (Dense + Sparse BM25 via RRF) with Re-Ranking
-    const searchResult = await performSemanticSearch({
-      knowledgeBaseId,
-      query,
-      searchMode,
-      threshold: similarityThreshold,
-      topK,
-      filterDocumentIds: Array.isArray(filterDocumentIds) ? filterDocumentIds : undefined,
-      enableReranking,
+      onFinish: async ({ text }) => persistAnswer(text),
+      onError: ({ error }) => console.error("[API Chat] Model stream error:", error),
     });
-
-    // 2. Build Strict Grounding Prompt with Citations
-    const { systemPrompt, userPrompt } = buildStrictGroundingPrompt(
-      query,
-      searchResult.chunks
-    );
-
-    // Citations header JSON for frontend slide-over sheet
-    const citationsHeader = JSON.stringify(searchResult.citations);
-
-    // 3. Check for API keys: Custom BYOK or Host Environment (OpenAI / Google Gemini)
-    const hasOpenAI = Boolean(customOpenAiKey || process.env.OPENAI_API_KEY);
-    const hasGemini = Boolean(customGeminiKey || process.env.GOOGLE_GENERATIVE_AI_API_KEY);
-
-    if (hasOpenAI || hasGemini) {
-      let selectedModel;
-      if (modelProvider === "google" && hasGemini) {
-        selectedModel = customGeminiKey
-          ? createGoogleGenerativeAI({ apiKey: customGeminiKey })("gemini-1.5-flash")
-          : google("gemini-1.5-flash");
-      } else if (customOpenAiKey) {
-        selectedModel = createOpenAI({ apiKey: customOpenAiKey })("gpt-4o-mini");
-      } else if (process.env.OPENAI_API_KEY) {
-        selectedModel = openai("gpt-4o-mini");
-      } else {
-        selectedModel = google("gemini-1.5-flash");
-      }
-
-      const result = streamText({
-        model: selectedModel,
-        system: systemPrompt,
-        prompt: userPrompt,
-        onFinish: async ({ text }) => {
-          if (chatSessionId && text) {
-            try {
-              const groundedness = evaluateGroundedness(
-                text,
-                searchResult.citations,
-                searchResult.chunks
-              );
-              await db.createChatMessage({
-                chatSessionId,
-                role: "ASSISTANT",
-                content: text,
-                citations: searchResult.citations,
-                groundedness,
-              });
-            } catch (err) {
-              console.warn("[API Chat] Failed to save assistant message onFinish:", err);
-            }
-          }
-        },
-      });
-
-      return result.toTextStreamResponse({
-        headers: {
-          "x-citations": encodeURIComponent(citationsHeader),
-          "X-RateLimit-Limit": String(rateLimit.limit),
-          "X-RateLimit-Remaining": String(rateLimit.remaining),
-          "X-RateLimit-Reset": String(rateLimit.resetInSeconds),
-          "Access-Control-Expose-Headers":
-            "x-citations, x-groundedness, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset",
-        },
-      });
-    }
-
-    // 4. Intelligent Local Streaming Fallback (when running offline / demo without external API keys)
-    const simulatedResponse = generateGroundedFallbackResponse(
-      query,
-      searchResult.chunks,
-      searchResult.hasContext
-    );
-
-    // Evaluate Groundedness
-    const groundedness = evaluateGroundedness(
-      simulatedResponse,
-      searchResult.citations,
-      searchResult.chunks
-    );
-    const groundednessHeader = JSON.stringify(groundedness);
-
-    // Persist assistant message in fallback
-    if (chatSessionId) {
-      try {
-        await db.createChatMessage({
-          chatSessionId,
-          role: "ASSISTANT",
-          content: simulatedResponse,
-          citations: searchResult.citations,
-          groundedness,
-        });
-      } catch (err) {
-        console.warn("[API Chat] Failed to save fallback assistant message:", err);
-      }
-    }
-
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream({
-      async start(controller) {
-        const words = simulatedResponse.split(" ");
-        for (let i = 0; i < words.length; i++) {
-          const piece = i === 0 ? words[i] : ` ${words[i]}`;
-          controller.enqueue(encoder.encode(piece));
-          await new Promise((resolve) => setTimeout(resolve, 25));
-        }
-        controller.close();
-      },
-    });
-
-    return new Response(stream, {
-      headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-        "x-citations": encodeURIComponent(citationsHeader),
-        "x-groundedness": encodeURIComponent(groundednessHeader),
-        "X-RateLimit-Limit": String(rateLimit.limit),
-        "X-RateLimit-Remaining": String(rateLimit.remaining),
-        "X-RateLimit-Reset": String(rateLimit.resetInSeconds),
-        "Access-Control-Expose-Headers":
-          "x-citations, x-groundedness, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset",
-      },
-    });
-  } catch (error: unknown) {
-    const err = error as Error;
-    console.error("[API Chat] Error generating RAG stream:", err);
-    return NextResponse.json(
-      { error: err.message || "Terjadi kesalahan internal saat memproses jawaban RAG." },
-      { status: 500 }
-    );
-  }
-}
-
-function generateGroundedFallbackResponse(
-  query: string,
-  chunks: Array<{ content: string; pageNumber: number | null; documentTitle: string }>,
-  hasContext: boolean
-): string {
-  if (!hasContext || chunks.length === 0) {
-    return `Maaf, informasi mengenai "${query}" tidak ditemukan dalam dokumen yang diindeks pada Knowledge Base saat ini. Mohon pastikan dokumen PDF atau file terkait telah diunggah dan dianalisis.`;
+    return result.toTextStreamResponse({ headers: baseHeaders });
   }
 
-  // Extract core takeaways from the top chunks with citations
-  const citePoints = chunks
-    .slice(0, 3)
-    .map((c, idx) => {
-      const citeNum = idx + 1;
-      const snippet = c.content.split("\n")[0].slice(0, 150).trim();
-      const page = c.pageNumber ? `(Halaman ${c.pageNumber})` : "";
-      return `• Berdasarkan dokumen **${c.documentTitle}** ${page}: "${snippet}..." [${citeNum}]`;
-    })
-    .join("\n\n");
+  // 5b. Offline / no API key: deterministic grounded summary, streamed word by word.
+  const simulated = generateGroundedFallbackResponse(query, searchResult.chunks, searchResult.hasContext, locale);
+  const groundedness = evaluateGroundedness(simulated, searchResult.citations, searchResult.chunks);
+  await persistAnswer(simulated);
 
-  return `Berdasarkan analisis semantik terhadap dokumen dalam Knowledge Base Anda, berikut adalah poin-poin yang relevan terkait pertanyaan Anda:\n\n${citePoints}\n\nSemua rincian di atas diekstraksi secara langsung dari data vektor terindeks dengan ambang kemiripan kosinus (cosine similarity threshold) >= 0.65. Anda dapat mengklik tombol sitasi [1], [2], atau [3] untuk meninjau paragraf asli pada panel samping.`;
-}
+  const encoder = new TextEncoder();
+  const words = simulated.split(" ");
+  const stream = new ReadableStream({
+    async start(controller) {
+      for (let i = 0; i < words.length; i++) {
+        controller.enqueue(encoder.encode(i === 0 ? words[i] : ` ${words[i]}`));
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      controller.close();
+    },
+  });
 
-function generateSmartSessionTitle(query: string): string {
-  const clean = query
-    .replace(/[?.,!":;]/g, "")
-    .replace(
-      /^(tolong|bagaimana|apakah|sebutkan|jelaskan|apa saja|siapa|kapan|mengapa|dimana|bisakah kamu)\s+/i,
-      ""
-    )
-    .trim();
-
-  const words = clean.split(/\s+/).slice(0, 5);
-  if (words.length === 0) return "Diskusi RAG";
-  const title = words.join(" ");
-  return title.charAt(0).toUpperCase() + title.slice(1);
-}
-
+  return new Response(stream, {
+    headers: {
+      ...baseHeaders,
+      "Content-Type": "text/plain; charset=utf-8",
+      "x-groundedness": encodeURIComponent(JSON.stringify(groundedness)),
+    },
+  });
+});

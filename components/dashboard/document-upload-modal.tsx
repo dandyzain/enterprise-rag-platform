@@ -6,12 +6,15 @@ import { Button } from "@/components/ui/button";
 import { formatBytes } from "@/lib/utils";
 import { toast } from "sonner";
 import { useLanguage } from "@/lib/i18n/context";
+import { fmt } from "@/lib/i18n/format";
+import { useAuth } from "@/components/providers/auth-provider";
 
 interface DocumentUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
   knowledgeBaseId: string;
   onUploadSuccess: () => void;
+  canWrite?: boolean;
 }
 
 export function DocumentUploadModal({
@@ -19,13 +22,14 @@ export function DocumentUploadModal({
   onClose,
   knowledgeBaseId,
   onUploadSuccess,
+  canWrite = false,
 }: DocumentUploadModalProps) {
   const { t } = useLanguage();
+  const { user } = useAuth();
   const [dragActive, setDragActive] = React.useState(false);
   const [selectedFiles, setSelectedFiles] = React.useState<File[]>([]);
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [pipelineStep, setPipelineStep] = React.useState<string | null>(null);
-  const [currentFileIndex, setCurrentFileIndex] = React.useState<number>(0);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   if (!isOpen) return null;
@@ -64,7 +68,6 @@ export function DocumentUploadModal({
 
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
-        setCurrentFileIndex(i + 1);
         setPipelineStep(`Indexing [${i + 1}/${selectedFiles.length}]: ${file.name}...`);
 
         const formData = new FormData();
@@ -81,23 +84,26 @@ export function DocumentUploadModal({
           successCount++;
           totalChunks += json.data?.totalChunks || 0;
         } else {
-          console.warn(`Failed indexing ${file.name}:`, json.error);
+          toast.error(fmt(t.toasts.uploadFileFailed, { name: file.name, error: json.error || t.toasts.uploadFailed }));
         }
       }
 
-      toast.success(
-        `Batch ingestion finished: ${successCount} of ${selectedFiles.length} documents indexed (${totalChunks} chunks).`
-      );
+      const summary = fmt(t.toasts.uploadBatchDone, {
+        ok: successCount,
+        total: selectedFiles.length,
+        chunks: totalChunks,
+      });
+      if (successCount > 0) toast.success(summary);
+      else toast.warning(summary);
       onUploadSuccess();
       onClose();
     } catch (err: unknown) {
       const error = err as Error;
-      toast.error(error.message || "Failed to upload files.");
+      toast.error(error.message || t.toasts.uploadFailed);
     } finally {
       setIsProcessing(false);
       setPipelineStep(null);
       setSelectedFiles([]);
-      setCurrentFileIndex(0);
     }
   };
 
@@ -111,15 +117,15 @@ export function DocumentUploadModal({
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json.error || "Failed to load sample documents.");
+        throw new Error(json.error || t.toasts.seedFailed);
       }
 
-      toast.success("Successfully indexed 3 enterprise sample documents!");
+      toast.success(json.message || t.toasts.seedSuccess);
       onUploadSuccess();
       onClose();
     } catch (err: unknown) {
       const error = err as Error;
-      toast.error(error.message || "Failed to seed sample documents.");
+      toast.error(error.message || t.toasts.seedFailed);
     } finally {
       setIsProcessing(false);
       setPipelineStep(null);
@@ -140,13 +146,24 @@ export function DocumentUploadModal({
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
             disabled={isProcessing}
+            aria-label={t.common.close}
             className="rounded-full p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
+
+        {!canWrite && (
+          <p
+            role="status"
+            className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200"
+          >
+            {user ? t.toasts.readOnlyKb : t.toasts.signInToUpload}
+          </p>
+        )}
 
         {/* Dropzone & File Queue */}
         <div className="mt-5 space-y-3">
@@ -221,6 +238,7 @@ export function DocumentUploadModal({
                   {!isProcessing && (
                     <button
                       type="button"
+                      aria-label={`${t.common.delete}: ${file.name}`}
                       onClick={() => handleRemoveFile(idx)}
                       className="ml-2 text-zinc-400 hover:text-rose-500 cursor-pointer"
                     >

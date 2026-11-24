@@ -1,143 +1,118 @@
 import { openai } from "@ai-sdk/openai";
 import { google } from "@ai-sdk/google";
 import { embed, embedMany } from "ai";
+import { aiConfig } from "@/lib/env";
 
-export type EmbeddingProvider = "openai" | "google" | "local-deterministic";
+export type EmbeddingProvider = "openai" | "google" | "local";
 
-export interface EmbedderConfig {
-  provider?: EmbeddingProvider;
-  model?: string;
-  dimensions?: number;
+/** Must match the `vector(1536)` column in the database schema. */
+export const DEFAULT_VECTOR_DIM = 1536;
+export const LOCAL_EMBEDDING_MODEL = "local:hash-ngram-1536";
+
+export class EmbeddingError extends Error {
+  constructor(message: string, readonly cause?: unknown) {
+    super(message);
+    this.name = "EmbeddingError";
+  }
 }
 
-export const DEFAULT_VECTOR_DIM = 1536;
+/** Provider chosen from the server environment (documents are indexed with server keys only). */
+export function getEmbeddingProvider(): EmbeddingProvider {
+  if (aiConfig.hasServerOpenAI()) return "openai";
+  if (aiConfig.hasServerGoogle()) return "google";
+  return "local";
+}
+
+/** Identifier stored per document so vectors from different models are never compared. */
+export function getEmbeddingModelId(provider = getEmbeddingProvider()): string {
+  if (provider === "openai") return `openai:${aiConfig.openaiEmbeddingModel()}`;
+  if (provider === "google") return `google:${aiConfig.googleEmbeddingModel()}`;
+  return LOCAL_EMBEDDING_MODEL;
+}
 
 /**
- * Deterministic unit-vector embedding generator using character & word n-gram hashing.
- * Ensures tests and initial environments work cleanly without API keys.
+ * Deterministic word + bigram hashing vectors. Lets the demo work without API keys;
+ * quality is lexical, not semantic.
  */
-function generateDeterministicVector(text: string, dimensions = DEFAULT_VECTOR_DIM): number[] {
+export function generateDeterministicVector(text: string, dimensions = DEFAULT_VECTOR_DIM): number[] {
   const vec = new Array(dimensions).fill(0);
-  const normalized = text.toLowerCase().trim();
-  const words = normalized.split(/\s+/);
+  const words = text.toLowerCase().trim().split(/\s+/);
 
-  for (let i = 0; i < words.length; i++) {
-    const word = words[i];
+  const bucketOf = (value: string) => {
     let hash = 0;
-    for (let charIdx = 0; charIdx < word.length; charIdx++) {
-      hash = (hash << 5) - hash + word.charCodeAt(charIdx);
+    for (let i = 0; i < value.length; i++) {
+      hash = (hash << 5) - hash + value.charCodeAt(i);
       hash |= 0;
     }
-    const bucket = Math.abs(hash) % dimensions;
-    vec[bucket] += 1.0;
+    return Math.abs(hash) % dimensions;
+  };
 
-    // Bi-gram hashing
-    if (i < words.length - 1) {
-      const bigram = `${word}_${words[i + 1]}`;
-      let biHash = 0;
-      for (let c = 0; c < bigram.length; c++) {
-        biHash = (biHash << 5) - biHash + bigram.charCodeAt(c);
-        biHash |= 0;
-      }
-      const biBucket = Math.abs(biHash) % dimensions;
-      vec[biBucket] += 0.75;
-    }
+  for (let i = 0; i < words.length; i++) {
+    vec[bucketOf(words[i])] += 1.0;
+    if (i < words.length - 1) vec[bucketOf(`${words[i]}_${words[i + 1]}`)] += 0.75;
   }
 
-  // Normalize to L2 unit norm
-  let norm = 0;
-  for (let i = 0; i < dimensions; i++) {
-    norm += vec[i] * vec[i];
-  }
-  norm = Math.sqrt(norm);
+  const norm = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0));
   if (norm === 0) {
     vec[0] = 1.0;
     return vec;
   }
-
   return vec.map((v) => v / norm);
 }
 
-/**
- * Generate embedding for a single query text.
- */
-export async function getQueryEmbedding(
-  query: string,
-  config: EmbedderConfig = {}
-): Promise<number[]> {
-  const provider =
-    config.provider ??
-    (process.env.OPENAI_API_KEY
-      ? "openai"
-      : process.env.GOOGLE_GENERATIVE_AI_API_KEY
-      ? "google"
-      : "local-deterministic");
-
-  try {
-    if (provider === "openai" && process.env.OPENAI_API_KEY) {
-      const modelName = config.model ?? "text-embedding-3-small";
-      const { embedding } = await embed({
-        model: openai.embedding(modelName),
-        value: query,
-      });
-      return embedding;
-    }
-
-    if (provider === "google" && process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-      const modelName = config.model ?? "text-embedding-004";
-      const { embedding } = await embed({
-        model: google.textEmbeddingModel(modelName),
-        value: query,
-      });
-      return embedding;
-    }
-  } catch (error) {
-    console.warn(`[Embedder] Failed with provider ${provider}, falling back:`, error);
-  }
-
-  return generateDeterministicVector(query, config.dimensions ?? DEFAULT_VECTOR_DIM);
+function providerModel(provider: Exclude<EmbeddingProvider, "local">) {
+  return provider === "openai"
+    ? openai.embedding(aiConfig.openaiEmbeddingModel())
+    : google.embeddingModel(aiConfig.googleEmbeddingModel());
 }
 
-/**
- * Generate embeddings for multiple text chunks in batches.
- */
-export async function getBatchEmbeddings(
-  texts: string[],
-  config: EmbedderConfig = {}
-): Promise<number[][]> {
-  if (texts.length === 0) return [];
+const providerOptions = {
+  // Gemini embeddings default to 3072 dims; request 1536 to match the pgvector column.
+  google: { outputDimensionality: DEFAULT_VECTOR_DIM },
+};
 
-  const provider =
-    config.provider ??
-    (process.env.OPENAI_API_KEY
-      ? "openai"
-      : process.env.GOOGLE_GENERATIVE_AI_API_KEY
-      ? "google"
-      : "local-deterministic");
+export interface QueryEmbedding {
+  embedding: number[];
+  model: string;
+}
 
+/** Embed a search query with the same model used for indexing. Throws EmbeddingError on provider failure. */
+export async function getQueryEmbedding(query: string): Promise<QueryEmbedding> {
+  const provider = getEmbeddingProvider();
+  const model = getEmbeddingModelId(provider);
+  if (provider === "local") return { embedding: generateDeterministicVector(query), model };
   try {
-    if (provider === "openai" && process.env.OPENAI_API_KEY) {
-      const modelName = config.model ?? "text-embedding-3-small";
-      const { embeddings } = await embedMany({
-        model: openai.embedding(modelName),
-        values: texts,
-      });
-      return embeddings;
-    }
-
-    if (provider === "google" && process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-      const modelName = config.model ?? "text-embedding-004";
-      const { embeddings } = await embedMany({
-        model: google.textEmbeddingModel(modelName),
-        values: texts,
-      });
-      return embeddings;
-    }
-  } catch (error) {
-    console.warn(`[Embedder] Batch failed with provider ${provider}, using fallback:`, error);
+    const { embedding } = await embed({
+      model: providerModel(provider),
+      value: query,
+      dimensions: DEFAULT_VECTOR_DIM,
+      providerOptions,
+      maxRetries: 1,
+    });
+    return { embedding, model };
+  } catch (err) {
+    throw new EmbeddingError(`Query embedding failed (${model})`, err);
   }
+}
 
-  // Fallback to deterministic high-dimensional vector
-  const dim = config.dimensions ?? DEFAULT_VECTOR_DIM;
-  return texts.map((t) => generateDeterministicVector(t, dim));
+/** Embed document chunks. Throws EmbeddingError instead of silently mixing in fallback vectors. */
+export async function getBatchEmbeddings(texts: string[]): Promise<{ embeddings: number[][]; model: string }> {
+  const provider = getEmbeddingProvider();
+  const model = getEmbeddingModelId(provider);
+  if (texts.length === 0) return { embeddings: [], model };
+  if (provider === "local") {
+    return { embeddings: texts.map((t) => generateDeterministicVector(t)), model };
+  }
+  try {
+    const { embeddings } = await embedMany({
+      model: providerModel(provider),
+      values: texts,
+      dimensions: DEFAULT_VECTOR_DIM,
+      providerOptions,
+      maxRetries: 2,
+    });
+    return { embeddings, model };
+  } catch (err) {
+    throw new EmbeddingError(`Batch embedding failed (${model})`, err);
+  }
 }

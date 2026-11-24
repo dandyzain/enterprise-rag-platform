@@ -74,6 +74,7 @@ export function CitationDrawer({ citation, isOpen, onClose }: CitationDrawerProp
                   </div>
                 </div>
                 <Button
+                  aria-label={t.common.close}
                   variant="ghost"
                   size="iconSm"
                   onClick={onClose}

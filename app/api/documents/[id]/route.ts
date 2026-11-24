@@ -1,60 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { apiRoute, ApiError } from "@/lib/api/route";
+import { loadReadableDocument, loadWritableDocument } from "@/lib/api/access";
+import { RATE_LIMITS } from "@/lib/ratelimit";
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    const document = await db.getDocumentById(id);
-    if (!document) {
-      return NextResponse.json(
-        { success: false, error: "Dokumen tidak ditemukan." },
-        { status: 404 }
-      );
-    }
+export const GET = apiRoute<{ id: string }>(async (ctx) => {
+  const { document } = await loadReadableDocument(ctx.actor, ctx.params.id);
+  const chunks = await db.getDocumentChunks(document.id);
+  return ctx.json({ success: true, data: { document, chunks } });
+});
 
-    const chunks = await db.getDocumentChunks(id);
-    return NextResponse.json({
-      success: true,
-      data: {
-        document,
-        chunks,
-      },
-    });
-  } catch (error) {
-    console.error("[API Documents ID] GET error:", error);
-    return NextResponse.json(
-      { success: false, error: "Gagal memuat rincian dokumen." },
-      { status: 500 }
-    );
-  }
-}
-
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    const deleted = await db.deleteDocument(id);
-    if (!deleted) {
-      return NextResponse.json(
-        { success: false, error: "Dokumen tidak ditemukan untuk dihapus." },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: "Dokumen dan vektor chunk terkait berhasil dihapus.",
-    });
-  } catch (error) {
-    console.error("[API Documents ID] DELETE error:", error);
-    return NextResponse.json(
-      { success: false, error: "Gagal menghapus dokumen." },
-      { status: 500 }
-    );
-  }
-}
+export const DELETE = apiRoute<{ id: string }>(async (ctx) => {
+  await ctx.rateLimit("write", RATE_LIMITS.write);
+  const { document } = await loadWritableDocument(ctx.actor, ctx.params.id);
+  const deleted = await db.deleteDocument(document.id);
+  if (!deleted) throw new ApiError("DOC_NOT_FOUND", 404);
+  return ctx.json({ success: true, message: ctx.t("DOC_DELETED") });
+});

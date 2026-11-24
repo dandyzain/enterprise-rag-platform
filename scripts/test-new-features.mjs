@@ -1,13 +1,50 @@
 // Test script for new features: KB export, session rename, and chunks inspection
 
+// Seeding and exporting require the owner of the knowledge base, so this script signs in
+// with a sandboxed demo profile and works on its own knowledge base.
+let cookie = "";
+const originalFetch = globalThis.fetch;
+globalThis.fetch = async (url, init = {}) => {
+  const headers = new Headers(init.headers || {});
+  if (cookie) headers.set("cookie", cookie);
+  const res = await originalFetch(url, { ...init, headers });
+  const setCookies = res.headers.getSetCookie?.() || [];
+  if (setCookies.length) {
+    const jar = new Map(cookie ? cookie.split("; ").map((c) => c.split("=")) : []);
+    for (const c of setCookies) {
+      const [pair] = c.split(";");
+      const i = pair.indexOf("=");
+      jar.set(pair.slice(0, i), pair.slice(i + 1));
+    }
+    cookie = [...jar].map(([k, v]) => `${k}=${v}`).join("; ");
+  }
+  return res;
+};
+
 async function main() {
+  await fetch("http://localhost:3000/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ demoRole: "ADMIN" }),
+  });
+  const kbRes = await fetch("http://localhost:3000/api/knowledge-bases", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: `Feature Test KB ${Date.now()}` }),
+  });
+  const kbId = (await kbRes.json()).data?.id;
+
   console.log("=== 1. Seed Knowledge Base ===");
-  const seedRes = await fetch("http://localhost:3000/api/seed", { method: "POST" });
+  const seedRes = await fetch("http://localhost:3000/api/seed", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ knowledgeBaseId: kbId }),
+  });
   const seedJson = await seedRes.json();
-  console.log("Seed result:", seedJson.message, "Docs:", seedJson.data?.totalDocuments);
+  console.log("Seed result:", seedJson.message, "Docs:", seedJson.data?.length);
 
   console.log("\n=== 2. Test Knowledge Base Export Backup ===");
-  const exportRes = await fetch("http://localhost:3000/api/knowledge-bases/default-kb-1/export");
+  const exportRes = await fetch(`http://localhost:3000/api/knowledge-bases/${kbId}/export`);
   if (!exportRes.ok) {
     throw new Error(`Export failed with status: ${exportRes.status}`);
   }

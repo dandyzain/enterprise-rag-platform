@@ -2,8 +2,9 @@ import { SearchResultChunk } from "./types";
 import { tokenizeLexical } from "./bm25";
 
 /**
- * Enterprise Two-Stage Cross-Encoder Re-Ranker
- * Performs deep contextual alignment between user query and retrieved candidate chunks.
+ * Two-stage lexical re-ranker (heuristic, not a neural cross-encoder).
+ * Re-scores retrieved candidates with query-term coverage, phrase matches and
+ * entity/metric congruence on top of the first-stage retrieval score.
  */
 
 export interface RerankOptions {
@@ -68,7 +69,7 @@ export function rerankCandidates(options: RerankOptions): SearchResultChunk[] {
 
     const congruenceScore = isAskingForMetrics && hasConcreteData ? 1.0 : 0.4;
 
-    // Final Cross-Encoder Weighted Composite Score
+    // Final weighted composite score
     const compositeRerankScore =
       baseScore * 0.40 +
       coverageScore * 0.30 +

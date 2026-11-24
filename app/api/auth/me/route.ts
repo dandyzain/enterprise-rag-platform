@@ -1,17 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getSessionFromRequest } from "@/lib/auth/session";
+import { apiRoute } from "@/lib/api/route";
+import { isAuthConfigured, isDemoLoginEnabled } from "@/lib/env";
 
-export async function GET(req: NextRequest) {
-  try {
-    const user = getSessionFromRequest(req);
-    return NextResponse.json({
+export const GET = apiRoute(async (ctx) =>
+  ctx.json(
+    {
       success: true,
-      user,
-    });
-  } catch (error: any) {
-    return NextResponse.json(
-      { success: false, error: "Gagal memverifikasi sesi." },
-      { status: 500 }
-    );
-  }
-}
+      user: ctx.actor.user,
+      auth: { available: isAuthConfigured(), demoEnabled: isDemoLoginEnabled() && isAuthConfigured() },
+    },
+    { headers: { "Cache-Control": "no-store" } }
+  )
+);

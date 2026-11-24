@@ -4,6 +4,8 @@ import * as React from "react";
 import { CitationItem } from "@/lib/rag/types";
 import { Copy, Check, Terminal } from "lucide-react";
 import { toast } from "sonner";
+import { useLanguage } from "@/lib/i18n/context";
+import { fmt } from "@/lib/i18n/format";
 
 interface MarkdownMessageProps {
   content: string;
@@ -78,11 +80,12 @@ export function MarkdownMessage({
 
 function CodeBlockView({ language, code }: { language: string; code: string }) {
   const [copied, setCopied] = React.useState(false);
+  const { t } = useLanguage();
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(code);
+    void navigator.clipboard.writeText(code);
     setCopied(true);
-    toast.success("Kode disalin ke papan klip.");
+    toast.success(t.toasts.codeCopied);
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -101,12 +104,12 @@ function CodeBlockView({ language, code }: { language: string; code: string }) {
           {copied ? (
             <>
               <Check className="h-3 w-3 text-emerald-400" />
-              <span className="text-emerald-400">Tersalin</span>
+              <span className="text-emerald-400">{t.common.copied}</span>
             </>
           ) : (
             <>
               <Copy className="h-3 w-3" />
-              <span>Salin</span>
+              <span>{t.common.copy}</span>
             </>
           )}
         </button>
@@ -127,6 +130,7 @@ function TextBlockView({
   citations: CitationItem[];
   onSelectCitation: (c: CitationItem) => void;
 }) {
+  const { t } = useLanguage();
   const paragraphs = text.split("\n\n").filter((p) => p.trim().length > 0);
 
   return (
@@ -165,7 +169,7 @@ function TextBlockView({
                     <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
                   )}
                   <div className="flex-1">
-                    {parseInlineTokens(lineContent, citations, onSelectCitation)}
+                    {parseInlineTokens(lineContent, citations, onSelectCitation, t.toasts.citationRef)}
                   </div>
                 </div>
               );
@@ -183,7 +187,8 @@ function TextBlockView({
 function parseInlineTokens(
   text: string,
   citations: CitationItem[],
-  onSelectCitation: (c: CitationItem) => void
+  onSelectCitation: (c: CitationItem) => void,
+  missingCitationLabel = "Citation reference [{n}]"
 ): React.ReactNode {
   // Regex matches: [citation] OR `inline code` OR **bold**
   const tokenRegex = /(\[(\d+)\])|(`([^`]+)`)|(\*\*([^*]+)\*\*)/g;
@@ -209,7 +214,7 @@ function parseInlineTokens(
             if (found) {
               onSelectCitation(found);
             } else {
-              toast.info(`Sitasi referensi [${citeNum}]`);
+              toast.info(fmt(missingCitationLabel, { n: citeNum }));
             }
           }}
           className="mx-0.5 inline-flex items-center align-baseline rounded bg-emerald-100 px-1.5 py-0.2 font-mono text-[11px] font-semibold text-emerald-800 transition hover:bg-emerald-200 hover:scale-105 active:scale-95 dark:bg-emerald-950/80 dark:text-emerald-300 dark:hover:bg-emerald-900 cursor-pointer"

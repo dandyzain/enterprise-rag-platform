@@ -2,12 +2,22 @@
 
 export type DocumentStatus = "PROCESSING" | "INDEXED" | "FAILED";
 
+/**
+ * - private: owner only
+ * - link:    owner can write, anyone with the link can read (search / chat)
+ * - public:  the shared, read-only demo knowledge base
+ */
+export type KnowledgeBaseVisibility = "private" | "link" | "public";
+
 export interface KnowledgeBaseItem {
   id: string;
   userId: string;
   name: string;
   description?: string | null;
+  visibility: KnowledgeBaseVisibility;
   createdAt: Date;
+  /** Set by the API for the current viewer: may they upload / delete / share / back up? */
+  canWrite?: boolean;
 }
 
 export interface DocumentItem {
@@ -19,6 +29,10 @@ export interface DocumentItem {
   fileSize: number;
   status: DocumentStatus;
   chunkCount: number;
+  /** Embedding model the chunks were indexed with (e.g. "openai:text-embedding-3-small"). */
+  embeddingModel?: string | null;
+  /** Whether the original uploaded file is stored and can be downloaded / re-indexed. */
+  hasOriginalFile?: boolean;
   createdAt: Date;
 }
 
@@ -98,6 +112,8 @@ export interface ChatSessionItem {
   createdAt: Date;
 }
 
+export type MessageFeedback = "like" | "dislike";
+
 export interface ChatMessageItem {
   id: string;
   chatSessionId: string;
@@ -105,6 +121,7 @@ export interface ChatMessageItem {
   content: string;
   citations?: CitationItem[] | null;
   groundedness?: GroundednessReport | null;
+  feedback?: MessageFeedback | null;
   createdAt: Date;
 }
 

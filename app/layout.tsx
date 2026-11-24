@@ -6,6 +6,7 @@ import { AuthProvider } from "@/components/providers/auth-provider";
 import { LanguageProvider } from "@/lib/i18n/context";
 import { themeInitScript } from "@/lib/theme";
 import { Toaster } from "@/components/ui/toaster";
+import { getAppUrl } from "@/lib/env";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,9 +31,25 @@ const evidenceSerif = Newsreader({
 });
 
 export const metadata: Metadata = {
-  title: "Cortex RAG | Enterprise Knowledge Base & Semantic Search Engine",
+  metadataBase: new URL(getAppUrl()),
+  title: {
+    default: "Cortex RAG | Enterprise Knowledge Base & Semantic Search Engine",
+    template: "%s",
+  },
   description:
-    "Production-ready enterprise semantic search platform with pgvector, strict grounding, recursive chunking, and Vercel AI SDK streaming.",
+    "Enterprise semantic search with pgvector, strict grounding, verifiable citations, recursive chunking and streaming answers.",
+  applicationName: "Cortex RAG",
+  openGraph: {
+    type: "website",
+    siteName: "Cortex RAG",
+    title: "Cortex RAG | Enterprise Knowledge Base & Semantic Search",
+    description: "Grounded answers from your own documents, with citations you can verify.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Cortex RAG | Enterprise Knowledge Base & Semantic Search",
+    description: "Grounded answers from your own documents, with citations you can verify.",
+  },
 };
 
 export const viewport: Viewport = {

@@ -1,6 +1,5 @@
 import { db } from "@/lib/db";
-import { getQueryEmbedding } from "./embedder";
-import { scoreBM25, BM25DocumentChunk } from "./bm25";
+import { EmbeddingError, getQueryEmbedding, LOCAL_EMBEDDING_MODEL } from "./embedder";
 import { SearchResultChunk, SearchMode } from "./types";
 import { rerankCandidates } from "./reranker";
 
@@ -8,25 +7,61 @@ export interface HybridSearchOptions {
   knowledgeBaseId: string;
   query: string;
   searchMode?: SearchMode; // default: "hybrid"
-  threshold?: number; // default: 0.65 (adaptive in fallback)
+  threshold?: number; // default: 0.65
   topK?: number; // default: 5
   filterDocumentIds?: string[];
   enableReranking?: boolean; // default: true
 }
 
-/**
- * Reciprocal Rank Fusion constant (standard industry baseline = 60).
- * Prevents extreme bias toward rank 1 while smoothly distributing weights.
- */
+/** Reciprocal Rank Fusion constant (standard baseline = 60). */
 const RRF_K = 60;
 
 /**
- * Executes hybrid search combining Dense Semantic Vectors with Sparse BM25 Lexical Keyword Search.
- * Uses Reciprocal Rank Fusion (RRF) to merge ranks, with optional cross-encoder two-stage re-ranking.
+ * Dense retrieval. Returns [] (and lets BM25 carry the query) if the embedding
+ * provider is unavailable, instead of comparing vectors from different models.
  */
-export async function executeHybridSearch(
-  options: HybridSearchOptions
+async function denseRetrieve(
+  knowledgeBaseId: string,
+  query: string,
+  threshold: number,
+  limit: number,
+  documentIds?: string[],
+  adaptive = false
 ): Promise<SearchResultChunk[]> {
+  let queryEmbedding;
+  try {
+    queryEmbedding = await getQueryEmbedding(query);
+  } catch (err) {
+    if (err instanceof EmbeddingError) {
+      console.warn("[Search] Query embedding failed, using keyword retrieval only:", err.cause ?? err);
+      return [];
+    }
+    throw err;
+  }
+
+  // Hash vectors (no API key) produce much lower cosine scores than real embeddings.
+  const isLocal = queryEmbedding.model === LOCAL_EMBEDDING_MODEL;
+  const effectiveThreshold = isLocal ? Math.min(threshold, 0.05) : threshold;
+
+  const params = {
+    knowledgeBaseId,
+    embedding: queryEmbedding.embedding,
+    embeddingModel: queryEmbedding.model,
+    limit,
+    documentIds,
+  };
+  let results = await db.searchDense({ ...params, threshold: effectiveThreshold });
+  if (results.length === 0 && adaptive) {
+    results = await db.searchDense({ ...params, threshold: Math.min(effectiveThreshold * 0.1, 0.05) });
+  }
+  return results;
+}
+
+/**
+ * Hybrid retrieval: dense vectors + sparse keyword ranking fused with RRF,
+ * followed by an optional lexical re-ranking stage.
+ */
+export async function executeHybridSearch(options: HybridSearchOptions): Promise<SearchResultChunk[]> {
   const {
     knowledgeBaseId,
     query,
@@ -37,222 +72,63 @@ export async function executeHybridSearch(
     enableReranking = true,
   } = options;
 
-  if (!query || query.trim().length === 0) {
-    return [];
-  }
+  if (!query || query.trim().length === 0) return [];
+  const documentIds = filterDocumentIds && filterDocumentIds.length > 0 ? filterDocumentIds : undefined;
+  const poolSize = enableReranking ? Math.max(topK * 3, 15) : topK;
 
-  // 1. Semantic Vector Search Only
+  // 1. Semantic only
   if (searchMode === "semantic") {
-    const queryEmbedding = await getQueryEmbedding(query);
-    let denseResults = await db.searchSimilarChunks(
-      knowledgeBaseId,
-      queryEmbedding,
-      threshold,
-      enableReranking ? topK * 3 : topK
-    );
-    // Adaptive fallback if strict threshold returns 0 results
-    if (denseResults.length === 0) {
-      denseResults = await db.searchSimilarChunks(
-        knowledgeBaseId,
-        queryEmbedding,
-        Math.min(threshold * 0.1, 0.05),
-        enableReranking ? topK * 3 : topK
-      );
-    }
-    if (filterDocumentIds && filterDocumentIds.length > 0) {
-      const allowedSet = new Set(filterDocumentIds);
-      denseResults = denseResults.filter((r) => allowedSet.has(r.documentId));
-    }
-    const chunks = denseResults.map((r, i) => ({
-      ...r,
-      denseRank: i + 1,
-      matchType: "vector" as const,
-    }));
-    return enableReranking
-      ? rerankCandidates({ query, candidates: chunks, topK })
-      : chunks.slice(0, topK);
+    const dense = await denseRetrieve(knowledgeBaseId, query, threshold, poolSize, documentIds, true);
+    const chunks = dense.map((r, i) => ({ ...r, denseRank: i + 1, matchType: "vector" as const }));
+    return enableReranking ? rerankCandidates({ query, candidates: chunks, topK }) : chunks.slice(0, topK);
   }
 
-  // 2. Keyword BM25 Search Only
+  // 2. Keyword only
   if (searchMode === "keyword") {
-    let allKbChunks = await db.getAllChunksByKb(knowledgeBaseId);
-    if (filterDocumentIds && filterDocumentIds.length > 0) {
-      const allowedSet = new Set(filterDocumentIds);
-      allKbChunks = allKbChunks.filter((c) => allowedSet.has(c.documentId));
-    }
-    const candidateChunks: BM25DocumentChunk[] = allKbChunks.map((c) => ({
-      id: c.id,
-      documentId: c.documentId,
-      documentTitle: c.documentTitle,
-      content: c.content,
-      chunkIndex: c.chunkIndex,
-      pageNumber: c.pageNumber,
+    const sparse = await db.searchSparse({ knowledgeBaseId, query, limit: poolSize, documentIds });
+    const maxScore = sparse[0]?.score || 1;
+    const chunks = sparse.map((hit) => ({
+      ...hit.chunk,
+      similarity: Number(Math.min(1, hit.score / Math.max(maxScore, 1e-9)).toFixed(3)),
+      sparseRank: hit.rank,
+      bm25Score: hit.score,
+      matchType: "bm25" as const,
     }));
-
-    const bm25Results = scoreBM25(candidateChunks, query);
-    const maxScore = bm25Results[0]?.score || 1;
-
-    const chunks = bm25Results
-      .slice(0, enableReranking ? topK * 3 : topK)
-      .map((item) => ({
-        id: item.chunk.id,
-        documentId: item.chunk.documentId,
-        documentTitle: item.chunk.documentTitle,
-        content: item.chunk.content,
-        chunkIndex: item.chunk.chunkIndex,
-        pageNumber: item.chunk.pageNumber,
-        similarity: Number(
-          Math.min(1.0, item.score / Math.max(maxScore, 1)).toFixed(3)
-        ),
-        sparseRank: item.rank,
-        bm25Score: item.score,
-        matchType: "bm25" as const,
-      }));
-
-    return enableReranking
-      ? rerankCandidates({ query, candidates: chunks, topK })
-      : chunks.slice(0, topK);
+    return enableReranking ? rerankCandidates({ query, candidates: chunks, topK }) : chunks.slice(0, topK);
   }
 
-  // 3. Hybrid Search (Dense + Sparse with Reciprocal Rank Fusion)
-  // Retrieve expanded candidate pools from both channels (topK * 3)
+  // 3. Hybrid (RRF over both candidate pools)
   const candidatePoolSize = Math.max(topK * 3, 15);
-
-  // A. Dense vector retrieval
-  const queryEmbedding = await getQueryEmbedding(query);
-  let denseCandidates = await db.searchSimilarChunks(
-    knowledgeBaseId,
-    queryEmbedding,
-    // Slightly more lenient threshold to gather good semantic candidates for RRF fusion
-    threshold * 0.8,
-    candidatePoolSize
-  );
-
-  if (filterDocumentIds && filterDocumentIds.length > 0) {
-    const allowedSet = new Set(filterDocumentIds);
-    denseCandidates = denseCandidates.filter((r) => allowedSet.has(r.documentId));
-  }
-
-  // Map chunkId -> { rank: number, similarity: number, chunk: SearchResultChunk }
-  const denseMap = new Map<
-    string,
-    { rank: number; similarity: number; chunk: SearchResultChunk }
-  >();
-  denseCandidates.forEach((c, idx) => {
-    denseMap.set(c.id, {
-      rank: idx + 1,
-      similarity: c.similarity,
-      chunk: c,
-    });
-  });
-
-  // B. Sparse BM25 retrieval
-  let allKbChunks = await db.getAllChunksByKb(knowledgeBaseId);
-  if (filterDocumentIds && filterDocumentIds.length > 0) {
-    const allowedSet = new Set(filterDocumentIds);
-    allKbChunks = allKbChunks.filter((c) => allowedSet.has(c.documentId));
-  }
-
-  const bm25Candidates: BM25DocumentChunk[] = allKbChunks.map((c) => ({
-    id: c.id,
-    documentId: c.documentId,
-    documentTitle: c.documentTitle,
-    content: c.content,
-    chunkIndex: c.chunkIndex,
-    pageNumber: c.pageNumber,
-  }));
-
-  const bm25Results = scoreBM25(bm25Candidates, query).slice(0, candidatePoolSize);
-
-  // Map chunkId -> { rank: number, score: number, chunk: BM25DocumentChunk }
-  const sparseMap = new Map<
-    string,
-    { rank: number; score: number; chunk: BM25DocumentChunk }
-  >();
-  bm25Results.forEach((b) => {
-    sparseMap.set(b.chunk.id, {
-      rank: b.rank,
-      score: b.score,
-      chunk: b.chunk,
-    });
-  });
-
-  // C. Calculate Reciprocal Rank Fusion (RRF) scores
-  const allCandidateIds = new Set<string>([
-    ...Array.from(denseMap.keys()),
-    ...Array.from(sparseMap.keys()),
+  const [dense, sparse] = await Promise.all([
+    denseRetrieve(knowledgeBaseId, query, threshold * 0.8, candidatePoolSize, documentIds),
+    db.searchSparse({ knowledgeBaseId, query, limit: candidatePoolSize, documentIds }),
   ]);
 
-  interface FusedItem {
-    id: string;
-    documentId: string;
-    documentTitle: string;
-    content: string;
-    chunkIndex: number;
-    pageNumber: number | null;
-    similarity: number;
-    denseRank?: number;
-    sparseRank?: number;
-    bm25Score?: number;
-    rrfScore: number;
-    matchType: "hybrid" | "vector" | "bm25";
-  }
+  const denseMap = new Map(dense.map((c, idx) => [c.id, { rank: idx + 1, chunk: c }]));
+  const sparseMap = new Map(sparse.map((hit) => [hit.chunk.id, hit]));
+  const ids = new Set<string>([...denseMap.keys(), ...sparseMap.keys()]);
 
-  const fusedItems: FusedItem[] = [];
+  const fused: SearchResultChunk[] = [];
+  for (const id of ids) {
+    const d = denseMap.get(id);
+    const s = sparseMap.get(id);
+    const base = d?.chunk ?? (s ? { ...s.chunk, similarity: 0 } : null);
+    if (!base) continue;
 
-  for (const id of allCandidateIds) {
-    const denseEntry = denseMap.get(id);
-    const sparseEntry = sparseMap.get(id);
-
-    let rrfScore = 0;
-    if (denseEntry) {
-      rrfScore += 1.0 / (RRF_K + denseEntry.rank);
-    }
-    if (sparseEntry) {
-      rrfScore += 1.0 / (RRF_K + sparseEntry.rank);
-    }
-
-    let matchType: "hybrid" | "vector" | "bm25" = "hybrid";
-    if (denseEntry && !sparseEntry) {
-      matchType = "vector";
-    } else if (!denseEntry && sparseEntry) {
-      matchType = "bm25";
-    }
-
-    const chunkData = denseEntry?.chunk || sparseEntry?.chunk;
-    if (!chunkData) continue;
-
-    // Harmonize similarity score:
-    const baseSim = denseEntry ? denseEntry.similarity : 0.70;
-    const isBoth = denseEntry && sparseEntry;
-    const finalSimilarity = Number(
-      Math.min(0.99, baseSim + (isBoth ? 0.08 : 0)).toFixed(3)
-    );
-
-    fusedItems.push({
-      id,
-      documentId: chunkData.documentId,
-      documentTitle: chunkData.documentTitle,
-      content: chunkData.content,
-      chunkIndex: chunkData.chunkIndex,
-      pageNumber: chunkData.pageNumber,
-      similarity: finalSimilarity,
-      denseRank: denseEntry?.rank,
-      sparseRank: sparseEntry?.rank,
-      bm25Score: sparseEntry?.score,
+    const rrfScore = (d ? 1 / (RRF_K + d.rank) : 0) + (s ? 1 / (RRF_K + s.rank) : 0);
+    const matchType: "hybrid" | "vector" | "bm25" = d && s ? "hybrid" : d ? "vector" : "bm25";
+    const baseSim = d ? d.chunk.similarity : 0.7;
+    fused.push({
+      ...base,
+      similarity: Number(Math.min(0.99, baseSim + (d && s ? 0.08 : 0)).toFixed(3)),
+      denseRank: d?.rank,
+      sparseRank: s?.rank,
+      bm25Score: s?.score,
       rrfScore: Number(rrfScore.toFixed(5)),
       matchType,
     });
   }
 
-  // D. Sort by RRF score descending
-  fusedItems.sort((a, b) => b.rrfScore - a.rrfScore);
-
-  // E. Stage 2 Cross-Encoder Re-Ranking
-  if (enableReranking) {
-    return rerankCandidates({ query, candidates: fusedItems, topK });
-  }
-
-  return fusedItems.slice(0, topK);
+  fused.sort((a, b) => (b.rrfScore ?? 0) - (a.rrfScore ?? 0));
+  return enableReranking ? rerankCandidates({ query, candidates: fused, topK }) : fused.slice(0, topK);
 }
-

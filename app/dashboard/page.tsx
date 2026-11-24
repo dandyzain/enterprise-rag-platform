@@ -18,9 +18,44 @@ import {
   ChatSessionItem,
 } from "@/lib/rag/types";
 import { toast } from "sonner";
+import { useLanguage } from "@/lib/i18n/context";
+import { useAuth } from "@/components/providers/auth-provider";
+import { AlertTriangle } from "lucide-react";
+
+const DEFAULT_KB_ID = "default-kb-1";
+const SETTINGS_STORAGE_KEY = "enterprise_rag_byok_settings";
+const ONBOARDING_STORAGE_KEY = "enterprise_rag_onboarding_dismissed";
+
+const DEFAULT_RAG_SETTINGS: RagSettings = {
+  similarityThreshold: 0.65,
+  topK: 5,
+  modelProvider: "openai",
+  searchMode: "hybrid",
+  enableReranking: true,
+};
+
+const subscribeNoop = () => () => {};
+
+function readStorage(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+/** `?kb=<id>` share links (read once, as an external store). */
+function readKbFromUrl(): string | null {
+  return new URLSearchParams(window.location.search).get("kb");
+}
 
 export default function DashboardPage() {
-  const [selectedKbId, setSelectedKbId] = React.useState("default-kb-1");
+  const { t, locale } = useLanguage();
+  const { user } = useAuth();
+  const urlKbId = React.useSyncExternalStore(subscribeNoop, readKbFromUrl, () => null);
+  const [selectedKbOverride, setSelectedKbId] = React.useState<string | null>(null);
+  const selectedKbId = selectedKbOverride ?? urlKbId ?? DEFAULT_KB_ID;
+  const [storagePersistent, setStoragePersistent] = React.useState(true);
   const [documents, setDocuments] = React.useState<DocumentItem[]>([]);
   const [knowledgeBases, setKnowledgeBases] = React.useState<KnowledgeBaseItem[]>([]);
   const [chatSessions, setChatSessions] = React.useState<ChatSessionItem[]>([]);
@@ -37,63 +72,60 @@ export default function DashboardPage() {
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
   const [isSearchPlaygroundOpen, setIsSearchPlaygroundOpen] = React.useState(false);
   const [isAnalyticsOpen, setIsAnalyticsOpen] = React.useState(false);
-  const [isOnboardingOpen, setIsOnboardingOpen] = React.useState(false);
+  const [onboardingOpenOverride, setIsOnboardingOpen] = React.useState<boolean | null>(null);
   const [promptForInput, setPromptForInput] = React.useState<string | undefined>(undefined);
 
-  // RAG Engine Settings
-  const [ragSettings, setRagSettings] = React.useState<RagSettings>({
-    similarityThreshold: 0.65,
-    topK: 5,
-    modelProvider: "openai",
-    searchMode: "hybrid",
-    enableReranking: true,
-  });
-
-  // Load URL query param for shared Knowledge Base and persistent BYOK settings from localStorage
-  React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const urlKb = params.get("kb");
-      if (urlKb) {
-        setSelectedKbId(urlKb);
-      }
-
-      try {
-        const savedSettings = localStorage.getItem("enterprise_rag_byok_settings");
-        if (savedSettings) {
-          const parsed = JSON.parse(savedSettings);
-          setRagSettings((prev) => ({
-            ...prev,
-            ...parsed,
-          }));
-        }
-
-        const isDismissed = localStorage.getItem("enterprise_rag_onboarding_dismissed");
-        if (!isDismissed) {
-          setIsOnboardingOpen(true);
-        }
-      } catch (e) {
-        console.warn("Failed to load settings or onboarding preference:", e);
-      }
-    }
-  }, []);
-
-  const loadDocuments = React.useCallback(async (kbId: string) => {
+  // RAG engine settings: saved overrides from localStorage (read as an external store, no effect)
+  const storedSettingsRaw = React.useSyncExternalStore(
+    subscribeNoop,
+    () => readStorage(SETTINGS_STORAGE_KEY),
+    () => null
+  );
+  const [ragSettingsOverride, setRagSettings] = React.useState<RagSettings | null>(null);
+  const ragSettings = React.useMemo<RagSettings>(() => {
+    if (ragSettingsOverride) return ragSettingsOverride;
     try {
-      const res = await fetch(`/api/documents?kbId=${encodeURIComponent(kbId)}`);
-      const json = await res.json();
+      return storedSettingsRaw ? { ...DEFAULT_RAG_SETTINGS, ...JSON.parse(storedSettingsRaw) } : DEFAULT_RAG_SETTINGS;
+    } catch {
+      return DEFAULT_RAG_SETTINGS;
+    }
+  }, [ragSettingsOverride, storedSettingsRaw]);
+
+  const onboardingDismissed = React.useSyncExternalStore(
+    subscribeNoop,
+    () => readStorage(ONBOARDING_STORAGE_KEY) !== null,
+    () => true
+  );
+  const isOnboardingOpen = onboardingOpenOverride ?? !onboardingDismissed;
+
+  const applyDocumentsResponse = React.useCallback(
+    (res: Response, json: { success?: boolean; data?: { documents?: DocumentItem[]; knowledgeBases?: KnowledgeBaseItem[]; storage?: { persistent?: boolean } } }, kbId: string) => {
+      if (res.status === 404 && kbId !== DEFAULT_KB_ID) {
+        // Stale or inaccessible ?kb= link: fall back to the public demo knowledge base.
+        setSelectedKbId(DEFAULT_KB_ID);
+        return;
+      }
       if (json.success && json.data) {
         setDocuments(json.data.documents || []);
         if (json.data.knowledgeBases && json.data.knowledgeBases.length > 0) {
           setKnowledgeBases(json.data.knowledgeBases);
         }
+        if (json.data.storage) setStoragePersistent(Boolean(json.data.storage.persistent));
       }
+    },
+    []
+  );
+
+  const loadDocuments = React.useCallback(async (kbId: string) => {
+    try {
+      const res = await fetch(`/api/documents?kbId=${encodeURIComponent(kbId)}`);
+      applyDocumentsResponse(res, await res.json(), kbId);
     } catch (err) {
-      console.error("Gagal memuat dokumen:", err);
+      console.error("Failed to load documents:", err);
     } finally {
       setIsLoadingDocs(false);
     }
-  }, []);
+  }, [applyDocumentsResponse]);
 
   const loadSessions = React.useCallback(async (kbId: string) => {
     try {
@@ -103,7 +135,7 @@ export default function DashboardPage() {
         setChatSessions(json.data);
       }
     } catch (err) {
-      console.error("Gagal memuat sesi chat:", err);
+      console.error("Failed to load chat sessions:", err);
     }
   }, []);
 
@@ -123,18 +155,13 @@ export default function DashboardPage() {
         ]);
 
         if (!ignore) {
-          if (docsJson.success && docsJson.data) {
-            setDocuments(docsJson.data.documents || []);
-            if (docsJson.data.knowledgeBases && docsJson.data.knowledgeBases.length > 0) {
-              setKnowledgeBases(docsJson.data.knowledgeBases);
-            }
-          }
+          applyDocumentsResponse(docsRes, docsJson, selectedKbId);
           if (sessJson.success && Array.isArray(sessJson.data)) {
             setChatSessions(sessJson.data);
           }
         }
       } catch (err) {
-        console.error("Gagal sinkronisasi data KB:", err);
+        console.error("Failed to sync knowledge base data:", err);
       } finally {
         if (!ignore) {
           setIsLoadingDocs(false);
@@ -145,7 +172,7 @@ export default function DashboardPage() {
     return () => {
       ignore = true;
     };
-  }, [selectedKbId]);
+  }, [selectedKbId, applyDocumentsResponse, user?.id]);
 
   const handleRefresh = React.useCallback(() => {
     setIsLoadingDocs(true);
@@ -159,7 +186,7 @@ export default function DashboardPage() {
   };
 
   const handleCreateNewSession = async () => {
-    const title = `Obrolan ${new Date().toLocaleDateString("id-ID", {
+    const title = `${locale === "id" ? "Obrolan" : "Chat"} ${new Date().toLocaleDateString(locale === "id" ? "id-ID" : "en-US", {
       day: "numeric",
       month: "short",
       hour: "2-digit",
@@ -176,10 +203,12 @@ export default function DashboardPage() {
       if (json.success && json.data) {
         setChatSessions((prev) => [json.data, ...prev]);
         setActiveSessionId(json.data.id);
-        toast.success("Sesi chat baru dibuat.");
+        toast.success(t.toasts.sessionCreated);
+      } else {
+        toast.error(json.error || t.toasts.sessionCreateFailed);
       }
     } catch {
-      toast.error("Gagal membuat sesi baru.");
+      toast.error(t.toasts.sessionCreateFailed);
     }
   };
 
@@ -194,10 +223,12 @@ export default function DashboardPage() {
         if (activeSessionId === sessionId) {
           setActiveSessionId(null);
         }
-        toast.success("Sesi obrolan dihapus.");
+        toast.success(t.toasts.sessionDeleted);
+      } else {
+        toast.error(json.error || t.toasts.sessionDeleteFailed);
       }
     } catch {
-      toast.error("Gagal menghapus sesi.");
+      toast.error(t.toasts.sessionDeleteFailed);
     }
   };
 
@@ -213,12 +244,12 @@ export default function DashboardPage() {
         setChatSessions((prev) =>
           prev.map((s) => (s.id === sessionId ? { ...s, title: newTitle } : s))
         );
-        toast.success("Judul sesi berhasil diperbarui.");
+        toast.success(t.toasts.sessionRenamed);
       } else {
-        toast.error(json.error || "Gagal memperbarui judul sesi.");
+        toast.error(json.error || t.toasts.sessionRenameFailed);
       }
     } catch {
-      toast.error("Gagal memperbarui judul sesi.");
+      toast.error(t.toasts.sessionRenameFailed);
     }
   };
 
@@ -230,14 +261,19 @@ export default function DashboardPage() {
       const json = await res.json();
       if (json.success) {
         setDocuments((prev) => prev.filter((d) => d.id !== docId));
-        toast.success("Dokumen berhasil dihapus.");
+        toast.success(t.toasts.documentDeleted);
+      } else {
+        toast.error(json.error || t.toasts.documentDeleteFailed);
       }
     } catch {
-      toast.error("Gagal menghapus dokumen.");
+      toast.error(t.toasts.documentDeleteFailed);
     }
   };
 
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = React.useState(false);
+
+  const currentKb = knowledgeBases.find((k) => k.id === selectedKbId) || null;
+  const canWrite = Boolean(currentKb?.canWrite);
 
   return (
     <div className="relative flex h-full w-full overflow-hidden bg-white dark:bg-zinc-950">
@@ -274,10 +310,22 @@ export default function DashboardPage() {
         onRenameSession={handleRenameSession}
         isMobileOpen={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
+        canWrite={canWrite}
+        currentKb={currentKb}
+        onKbChanged={handleRefresh}
       />
 
       {/* 2. Central Focused Chat Workspace */}
       <main className="relative flex flex-1 flex-col h-full overflow-hidden w-full min-w-0">
+        {!storagePersistent && (
+          <div
+            role="status"
+            className="flex items-start gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200"
+          >
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>{t.access.storageNotPersistent}</span>
+          </div>
+        )}
         <ChatWorkspace
           knowledgeBaseId={selectedKbId}
           activeSessionId={activeSessionId}
@@ -292,6 +340,7 @@ export default function DashboardPage() {
           onOpenAnalytics={() => setIsAnalyticsOpen(true)}
           onOpenOnboarding={() => setIsOnboardingOpen(true)}
           onToggleMobileSidebar={() => setIsMobileSidebarOpen((prev) => !prev)}
+          canWrite={canWrite}
         />
       </main>
 
@@ -308,6 +357,7 @@ export default function DashboardPage() {
         onClose={() => setIsUploadModalOpen(false)}
         knowledgeBaseId={selectedKbId}
         onUploadSuccess={handleRefresh}
+        canWrite={canWrite}
       />
 
       {/* 5. Create Knowledge Base Modal */}
@@ -326,6 +376,7 @@ export default function DashboardPage() {
         isOpen={Boolean(inspectingDoc)}
         onClose={() => setInspectingDoc(null)}
         onDeleted={handleRefresh}
+        canWrite={canWrite}
       />
 
       {/* 7. RAG Engine Settings Modal */}
@@ -337,7 +388,7 @@ export default function DashboardPage() {
           setRagSettings(newSettings);
           if (typeof window !== "undefined") {
             try {
-              localStorage.setItem("enterprise_rag_byok_settings", JSON.stringify(newSettings));
+              localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(newSettings));
             } catch (e) {
               console.warn("Failed to save BYOK settings:", e);
             }

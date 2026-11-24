@@ -14,6 +14,8 @@ import {
   Check,
   Download,
   FileJson,
+  FileDown,
+  RotateCcw,
 } from "lucide-react";
 import { DocumentItem, DocumentChunkItem } from "@/lib/rag/types";
 import { formatBytes } from "@/lib/utils";
@@ -21,12 +23,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useLanguage } from "@/lib/i18n/context";
+import { fmt } from "@/lib/i18n/format";
 
 interface DocumentDetailsModalProps {
   document: DocumentItem | null;
   isOpen: boolean;
   onClose: () => void;
   onDeleted: () => void;
+  canWrite?: boolean;
 }
 
 export function DocumentDetailsModal({
@@ -34,6 +38,7 @@ export function DocumentDetailsModal({
   isOpen,
   onClose,
   onDeleted,
+  canWrite = false,
 }: DocumentDetailsModalProps) {
   const { t } = useLanguage();
   const [chunks, setChunks] = React.useState<DocumentChunkItem[]>([]);
@@ -42,13 +47,23 @@ export function DocumentDetailsModal({
   const [showConfirmDelete, setShowConfirmDelete] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [copiedChunkId, setCopiedChunkId] = React.useState<string | null>(null);
+  const [isReindexing, setIsReindexing] = React.useState(false);
+  const [loadedFor, setLoadedFor] = React.useState<string | null>(null);
+
+  // Reset per-document UI state when a different document is opened.
+  const openKey = isOpen && document ? document.id : null;
+  if (openKey !== loadedFor) {
+    setLoadedFor(openKey);
+    if (openKey) {
+      setIsLoadingChunks(true);
+      setSearchQuery("");
+    }
+  }
 
   React.useEffect(() => {
     if (!document || !isOpen) return;
 
     let ignore = false;
-    setIsLoadingChunks(true);
-    setSearchQuery("");
 
     void (async () => {
       try {
@@ -82,15 +97,15 @@ export function DocumentDetailsModal({
       const json = await res.json();
 
       if (!res.ok || !json.success) {
-        throw new Error(json.error || "Failed to delete document.");
+        throw new Error(json.error || t.toasts.documentDeleteFailed);
       }
 
-      toast.success(`Document "${document.title}" and its vectors deleted successfully.`);
+      toast.success(json.message || t.toasts.documentDeleted);
       onDeleted();
       onClose();
     } catch (err: unknown) {
       const error = err as Error;
-      toast.error(error.message || "Failed to delete document.");
+      toast.error(error.message || t.toasts.documentDeleteFailed);
     } finally {
       setIsDeleting(false);
       setShowConfirmDelete(false);
@@ -104,7 +119,24 @@ export function DocumentDetailsModal({
       toast.success(t.common.copied);
       setTimeout(() => setCopiedChunkId(null), 2000);
     } catch {
-      toast.error("Failed to copy text.");
+      toast.error(t.toasts.copyFailed);
+    }
+  };
+
+  const handleReindex = async () => {
+    try {
+      setIsReindexing(true);
+      const res = await fetch(`/api/documents/${encodeURIComponent(document.id)}/reindex`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || t.toasts.reindexFailed);
+      toast.success(json.message || fmt(t.toasts.reindexSuccess, { name: document.title, chunks: json.data?.totalChunks ?? 0 }));
+      onDeleted();
+      const detail = await fetch(`/api/documents/${encodeURIComponent(document.id)}`).then((r) => r.json());
+      if (detail.success) setChunks(detail.data.chunks || []);
+    } catch (err) {
+      toast.error((err as Error).message || t.toasts.reindexFailed);
+    } finally {
+      setIsReindexing(false);
     }
   };
 
@@ -132,7 +164,7 @@ export function DocumentDetailsModal({
     a.download = `${document.title.replace(/[^a-zA-Z0-9_-]/g, "_")}-chunks.json`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("Chunks exported as JSON.");
+    toast.success(t.toasts.chunksExportedJson);
   };
 
   const handleExportMarkdown = () => {
@@ -153,7 +185,7 @@ export function DocumentDetailsModal({
     a.download = `${document.title.replace(/[^a-zA-Z0-9_-]/g, "_")}-chunks.md`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("Chunks exported as Markdown.");
+    toast.success(t.toasts.chunksExportedMd);
   };
 
   const filteredChunks = chunks.filter((c) => {
@@ -184,7 +216,9 @@ export function DocumentDetailsModal({
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
+            aria-label={t.common.close}
             className="rounded-full p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer"
           >
             <X className="h-4 w-4" />
@@ -204,7 +238,29 @@ export function DocumentDetailsModal({
             />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {document.hasOriginalFile && (
+              <Button asChild variant="outline" size="sm" className="h-8 gap-1.5 text-xs font-medium">
+                <a href={`/api/documents/${encodeURIComponent(document.id)}/file`} download>
+                  <FileDown className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                  <span>{t.access.downloadOriginal}</span>
+                </a>
+              </Button>
+            )}
+            {canWrite && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void handleReindex()}
+                disabled={isReindexing}
+                className="h-8 gap-1.5 text-xs font-medium cursor-pointer"
+                title={t.access.reindexHint}
+              >
+                <RotateCcw className={`h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 ${isReindexing ? "animate-spin" : ""}`} aria-hidden="true" />
+                <span>{t.access.reindex}</span>
+              </Button>
+            )}
             <Button
               type="button"
               variant="outline"
@@ -284,6 +340,7 @@ export function DocumentDetailsModal({
                           onClick={() => handleCopyChunk(chunk.id, chunk.content)}
                           className="rounded-md border border-zinc-200 bg-white p-1 text-zinc-500 hover:text-emerald-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:text-emerald-400 transition cursor-pointer"
                           title={t.common.copy}
+                          aria-label={t.common.copy}
                         >
                           {copiedChunkId === chunk.id ? (
                             <Check className="h-3 w-3 text-emerald-600" />
@@ -305,7 +362,7 @@ export function DocumentDetailsModal({
 
         {/* Footer Actions */}
         <div className="flex items-center justify-between border-t border-zinc-100 bg-zinc-50/50 p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
-          {!showConfirmDelete ? (
+          {!canWrite ? null : !showConfirmDelete ? (
             <Button
               type="button"
               variant="outline"

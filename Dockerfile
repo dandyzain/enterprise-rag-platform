@@ -60,4 +60,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -f http://localhost:3000/api/health || exit 1
 
-CMD ["node_modules/.bin/next", "start", "-p", "3000"]
+# Apply database migrations (when DATABASE_URL is set) before starting the server.
+CMD ["sh", "-c", "if [ -n \"$DATABASE_URL\" ]; then node_modules/.bin/prisma migrate deploy; fi && exec node_modules/.bin/next start -p 3000"]
